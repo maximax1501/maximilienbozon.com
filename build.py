@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Builds the static site into ./site.
+"""Builds the static site into ./docs.
 
 Run:  python3 build.py
 Edit photos.py to change which photographs appear and in what order.
+
+Your full-size photographs live in ./images and stay on this machine. The
+build makes the web copies in docs/images itself, capped at MAX_EDGE.
 """
 
 import html
 import os
 import shutil
+import subprocess
 import captions
 import photos
 
@@ -25,6 +29,15 @@ SITE_URL = "https://maximilienbozon.com"
 EMAIL = "contact@maximilienbozon.com"  # <-- change to your real address
 
 WIDTHS = [720, 1200, 1800, 2400]
+
+# Where the full-size photographs live, and how big a copy the site is
+# allowed to serve. The widest plate in the layout is 76rem — about 1216
+# CSS pixels — so 2000 covers even a high-density screen with room spare.
+# Serving the 2400px masters would hand every visitor a print-quality file
+# for nothing in return.
+MASTERS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
+MAX_EDGE = 2000
+COPYRIGHT = "© Maximilien Bozon"
 
 
 def src(fname, width=1800):
@@ -543,8 +556,81 @@ def build_extras():
     write(".nojekyll", "")
 
 
+def prepare_images():
+    """Make the web copies in docs/images from the masters in ./images.
+
+    Two things happen to every photograph: it is scaled so its longest side
+    is MAX_EDGE, and a copyright field is written into its metadata.
+
+    This does not stop anyone saving a picture — a browser cannot draw an
+    image it has not been given, so the bytes are always on the visitor's
+    machine. What it does is decide how good a copy that is. A screen-sized
+    file is worth far less than a print-sized one, and it costs the page
+    nothing, because the layout never displays more than this anyway.
+    """
+    dest = os.path.join(OUT, "images")
+    os.makedirs(dest, exist_ok=True)
+
+    if not os.path.isdir(MASTERS):
+        print("  images: no ./images folder — leaving docs/images as it is")
+        return
+
+    if shutil.which("sips") is None:
+        # sips ships with macOS. Elsewhere, publish the masters untouched
+        # rather than silently serving nothing.
+        print("  images: sips not found — copying masters at full size")
+        for fname in _photographs(MASTERS):
+            shutil.copy2(os.path.join(MASTERS, fname), os.path.join(dest, fname))
+        return
+
+    # A rebuild is forced when MAX_EDGE changes, otherwise the existing
+    # copies would look current while being the wrong size.
+    stamp = os.path.join(dest, ".max-edge")
+    previous = None
+    if os.path.exists(stamp):
+        with open(stamp, encoding="utf-8") as fh:
+            previous = fh.read().strip()
+    forced = previous != str(MAX_EDGE)
+
+    made = current = failed = 0
+    for fname in _photographs(MASTERS):
+        master = os.path.join(MASTERS, fname)
+        target = os.path.join(dest, fname)
+
+        if (not forced and os.path.exists(target)
+                and os.path.getmtime(target) >= os.path.getmtime(master)):
+            current += 1
+            continue
+
+        try:
+            _run(["sips", "-Z", str(MAX_EDGE), master, "--out", target])
+            _run(["sips", "-s", "copyright", COPYRIGHT, target])
+            made += 1
+        except subprocess.CalledProcessError:
+            print("  images: FAILED %s" % fname)
+            failed += 1
+
+    with open(stamp, "w", encoding="utf-8") as fh:
+        fh.write(str(MAX_EDGE) + "\n")
+
+    print("  images: %d rebuilt, %d already current, capped at %dpx%s"
+          % (made, current, MAX_EDGE, ", %d FAILED" % failed if failed else ""))
+
+
+def _photographs(folder):
+    return sorted(f for f in os.listdir(folder)
+                  if not f.startswith(".")
+                  and f.lower().endswith((".jpg", ".jpeg")))
+
+
+def _run(cmd):
+    subprocess.run(cmd, check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
+    prepare_images()
     build_home()
     for i, (slug, title, files, note, ratios, caps) in enumerate(SERIES):
         nxt = None

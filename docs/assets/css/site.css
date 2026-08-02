@@ -46,6 +46,25 @@ body {
 
 img { max-width: 100%; display: block; }
 
+/* Makes the photographs awkward to pocket by accident: no drag to the
+   desktop, no text selection around them, no long-press save sheet on iOS.
+   This is friction, not protection — anyone who opens the network panel
+   still has the file. The real limit is that what they get is a 2000px
+   screen copy, which build.py decides, not this. */
+.plate img,
+.lightbox__img,
+.series__item img,
+.about__portrait img,
+.bookgrid img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  user-drag: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 a { color: inherit; }
 
 ::selection { background: var(--lamp); color: var(--void); }

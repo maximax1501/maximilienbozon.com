@@ -254,4 +254,29 @@
         + "&body=" + encodeURIComponent(body);
     });
   }
+
+  /* Casual copying, discouraged.
+
+     Right-click and drag are how a photograph gets taken by accident — a
+     visitor admires it, saves it, posts it somewhere without a name on it.
+     Blocking both handles that case and nothing harder: the developer
+     tools, view-source, or a screenshot all still work, and no amount of
+     JavaScript changes that. Treated as a speed bump, not a lock.
+
+     Only the photographs are affected, so right-click still behaves
+     normally on text and links. */
+  var PROTECTED = ".plate img, .lightbox__img, .series__item img," +
+                  " .about__portrait img, .bookgrid img";
+
+  document.addEventListener("contextmenu", function (e) {
+    if (e.target && e.target.closest && e.target.closest(PROTECTED)) {
+      e.preventDefault();
+    }
+  });
+
+  document.addEventListener("dragstart", function (e) {
+    if (e.target && e.target.closest && e.target.closest(PROTECTED)) {
+      e.preventDefault();
+    }
+  });
 })();

@@ -120,13 +120,51 @@ resolves to it.
 
 ## Adding photographs later
 
-1. Drop the image files into `docs/images/`.
+1. Drop the full-size files into `images/` — the masters folder, not `docs/`.
 2. Add the filenames to the right list in `photos.py`.
 3. Add a title and note in `captions.py` (optional — see below).
 4. Run `python3 build.py`.
 5. Commit and push — GitHub Pages redeploys on its own.
 
 That's the whole workflow. Order in the list is order on the page.
+
+---
+
+## About people taking your photographs
+
+Read this part honestly, because the internet is full of products that sell
+you the opposite.
+
+**You cannot stop someone downloading a photograph you display.** To draw a
+picture on screen, the browser must first be given the picture. At that point
+it is on their machine, and no script can take it back. Disabled right-click,
+transparent overlays, canvas tricks, "encrypted" images — all of it is undone
+by the network panel, or by pressing the screenshot key. Anyone selling you
+image protection is selling you a feeling.
+
+What you *can* decide is how good a copy a thief walks away with. That is a
+real choice, and this is what the build does about it:
+
+- **Your masters never leave your machine.** `images/` holds the full-size
+  files and is excluded from git. Nothing in it is ever published.
+- **The site serves 2000px copies**, made by `build.py`. The widest plate in
+  the layout is about 1216 CSS pixels, so this is already more than the page
+  can show — you lose nothing on screen. But it caps a print at roughly 17cm
+  instead of the 20cm a 2400px file would give away.
+- **Every published file carries a copyright field** in its metadata, which
+  survives being saved and re-uploaded and is useful if you ever have to make
+  a claim.
+- **Right-click and drag are disabled on the photographs**, and on those only
+  — right-click still works normally on text and links. This stops the
+  opportunist who would have saved it without thinking. It stops nobody else,
+  and it is not meant to.
+
+To change the cap, edit `MAX_EDGE` in `build.py` and re-run it; every copy is
+regenerated automatically when that number changes.
+
+The measure that actually protects your work is not technical. It is that
+your name is on the site, the files carry your copyright, and the version in
+circulation is too small to print well.
 
 ---
 
