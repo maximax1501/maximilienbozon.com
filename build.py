@@ -537,6 +537,11 @@ def build_extras():
     # the domain and knock the site offline.
     write("CNAME", SITE_URL.split("//", 1)[1].rstrip("/") + "\n")
 
+    # Tells GitHub Pages to publish these files exactly as they are instead
+    # of running them through Jekyll. This site is written by hand, so Jekyll
+    # has nothing to do here except invent surprises.
+    write(".nojekyll", "")
+
 
 def main():
     os.makedirs(OUT, exist_ok=True)
