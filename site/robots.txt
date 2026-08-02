@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://maximilienbozon.com/sitemap.xml

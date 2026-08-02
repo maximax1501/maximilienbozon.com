@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contact — Maximilien Bozon</title>
+  <meta name="description" content="Contact Maximilien Bozon about prints, the Notice it edition, exhibitions and commissions.">
+  <meta property="og:title" content="Contact — Maximilien Bozon">
+  <meta property="og:description" content="Contact Maximilien Bozon about prints, the Notice it edition, exhibitions and commissions.">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400;1,6..96,500&family=Spectral:ital,wght@0,200;0,300;0,400;1,300&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2307080a'/><text x='16' y='23' font-family='Georgia,serif' font-size='19' fill='%23e9e4d9' text-anchor='middle'>M</text></svg>">
+  <link rel="stylesheet" href="assets/css/site.css">
+  <script>
+    /* Hide-then-reveal is only safe if the script that reveals actually loads.
+       If it hasn't run within 2.5s, drop back to a plain, fully visible page. */
+    document.documentElement.classList.add('js');
+    setTimeout(function () {
+      if (document.documentElement.dataset.enhanced !== '1') {
+        document.documentElement.classList.remove('js');
+      }
+    }, 2500);
+  </script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="masthead">
+  <a class="masthead__mark" href="index.html">MB</a>
+  <nav class="masthead__nav" aria-label="Primary"><a href="shadow.html">Shadow</a><a href="light.html">Light</a><a href="monochrome.html">Monochrome</a><a href="notice-it.html">Notice it</a><a href="about.html">About</a><a href="contact.html" aria-current="page">Contact</a></nav>
+</header>
+<main id="main">
+<section class="pagehead shell">
+  <p class="label">Contact</p>
+  <h1 class="pagehead__title">Get in<br><em>touch</em></h1>
+  <p class="pagehead__note">Prints, the Notice it edition, exhibitions and commissions. Write directly, or leave a message below.</p>
+</section>
+
+<section class="band shell" style="padding-top:clamp(1rem,3vh,2rem)">
+  <div class="split reveal">
+    <div>
+      <p class="label">By email</p>
+      <p><a class="contact__mail" href="mailto:contact@maximilienbozon.com">contact@maximilienbozon.com</a></p>
+      <p style="color:var(--ash);margin-top:2rem">Based in London. Replies usually within a few days.</p>
+    </div>
+    <div>
+      <p class="label">Or leave a message</p>
+      <!-- With action="" left empty this form opens the visitor's mail app,
+           prefilled. To collect submissions instead, make a free endpoint at
+           formspree.io (or formsubmit.co) and paste it into action="". -->
+      <form action="" method="POST" data-mailto="contact@maximilienbozon.com" style="margin-top:1.5rem">
+        <div class="field">
+          <label for="name">Name</label>
+          <input id="name" name="name" type="text" autocomplete="name" required>
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" rows="5" required></textarea>
+        </div>
+        <button class="btn" type="submit">Send message</button>
+      </form>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="colophon shell">
+  <span>&copy; Maximilien Bozon</span>
+  <span>Wildlife photography &middot; London</span>
+  <a href="mailto:contact@maximilienbozon.com">contact@maximilienbozon.com</a>
+</footer>
+<script src="assets/js/site.js" defer></script>
+</body>
+</html>

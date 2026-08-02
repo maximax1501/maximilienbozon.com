@@ -1,0 +1,757 @@
+/* =========================================================
+   Maximilien Bozon — visual identity
+   Ground: near-black. Accent: light itself, warm tungsten.
+   Display: Bodoni Moda (the didone of natural-history atlases)
+   Body: Spectral. Labels: Archivo, tracked, specimen-tag small.
+   ========================================================= */
+
+:root {
+  --void:      #07080a;
+  --void-lift: #0d0f12;
+  --rule:      #1c1f23;
+  --vellum:    #e9e4d9;
+  --ash:       #7c7a75;
+  --ash-dim:   #6f6d67;
+  --lamp:      #f0dfb8;
+
+  --gut: clamp(1.25rem, 4vw, 4.5rem);
+  --shell: min(1500px, 100% - (var(--gut) * 2));
+  --measure: 34rem;
+
+  --t-hero:  clamp(3.4rem, 13.5vw, 13rem);
+  --t-xl:    clamp(2.4rem, 6.5vw, 5.5rem);
+  --t-lg:    clamp(1.7rem, 3.2vw, 2.9rem);
+  --t-md:    clamp(1.25rem, 2vw, 1.7rem);
+  --t-body:  clamp(1.02rem, 0.95rem + 0.3vw, 1.22rem);
+  --t-label: 0.68rem;
+
+  --ease: cubic-bezier(0.16, 0.84, 0.36, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--void);
+  color: var(--vellum);
+  font-family: "Spectral", Georgia, serif;
+  font-weight: 300;
+  font-size: var(--t-body);
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+img { max-width: 100%; display: block; }
+
+a { color: inherit; }
+
+::selection { background: var(--lamp); color: var(--void); }
+
+:focus-visible {
+  outline: 1px solid var(--lamp);
+  outline-offset: 4px;
+}
+
+.skip {
+  position: absolute; left: -9999px; top: 0; z-index: 99;
+  background: var(--lamp); color: var(--void);
+  padding: 0.6rem 1rem; font-family: "Archivo", sans-serif;
+  font-size: var(--t-label); letter-spacing: 0.18em; text-transform: uppercase;
+}
+.skip:focus { left: 0; }
+
+/* ---------- the overture: the way in ----------
+   A black panel that draws the name out of the dark, then lifts like a
+   curtain to leave you standing in the hero. Armed in <head> so it never
+   flashes; shown once per session; skippable at any point. */
+
+.overture { display: none; }
+
+html.overture-armed { overflow: hidden; }
+
+.overture-armed .overture {
+  position: fixed; inset: 0; z-index: 60;
+  display: grid; align-content: center; justify-items: center;
+  background: var(--void);
+  transition: opacity 900ms var(--ease), clip-path 1100ms var(--ease);
+  clip-path: inset(0 0 0 0);
+}
+
+/* the same moving light as the rest of the site, borrowed for the entrance */
+.overture__glow {
+  position: absolute; inset: 0; pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(
+    760px circle at var(--mx, 50%) var(--my, 46%),
+    rgba(240, 223, 184, 0.11),
+    rgba(240, 223, 184, 0.035) 42%,
+    transparent 72%
+  );
+  transition: background 380ms linear;
+}
+
+.overture__inner { position: relative; z-index: 2; text-align: center; padding: 0 var(--gut); }
+
+.overture__mark {
+  font-family: "Bodoni Moda", serif;
+  font-size: 0.95rem; letter-spacing: 0.62em; text-indent: 0.62em;
+  color: var(--ash); margin: 0 0 clamp(1.6rem, 5vh, 3rem);
+  opacity: 0; animation: ov-fade 900ms var(--ease) 120ms forwards;
+}
+
+.overture__name {
+  font-family: "Bodoni Moda", serif; font-weight: 400;
+  font-size: clamp(2.9rem, 11vw, 9.5rem);
+  line-height: 0.9; letter-spacing: -0.02em;
+  text-transform: uppercase; margin: 0;
+}
+.overture__line { display: block; overflow: hidden; }
+.overture__line i {
+  display: block; font-style: normal;
+  transform: translateY(105%);
+  animation: ov-rise 1050ms var(--ease) forwards;
+}
+.overture__line:first-child i { animation-delay: 260ms; }
+.overture__line:last-child i { font-style: italic; font-weight: 500; animation-delay: 420ms; }
+
+.overture__sub {
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--t-label); font-weight: 500;
+  letter-spacing: 0.32em; text-transform: uppercase; color: var(--ash);
+  margin: clamp(1.4rem, 4vh, 2.4rem) 0 0;
+  opacity: 0; animation: ov-fade 1000ms var(--ease) 900ms forwards;
+}
+
+/* the enter control is also the progress indicator: the hairline beneath it
+   fills for as long as the panel has left to run */
+.overture__enter {
+  position: absolute; z-index: 2;
+  bottom: clamp(2.4rem, 7vh, 4.5rem); left: 50%; transform: translateX(-50%);
+  display: grid; justify-items: center; gap: 0.7rem;
+  background: none; border: 0; cursor: pointer; padding: 0.6rem 1.4rem;
+  font-family: "Archivo", system-ui, sans-serif; font-size: var(--t-label);
+  letter-spacing: 0.3em; text-transform: uppercase; color: var(--ash);
+  opacity: 0; animation: ov-fade 900ms var(--ease) 1250ms forwards;
+  transition: color 320ms var(--ease);
+}
+.overture__enter:hover { color: var(--lamp); }
+
+.overture__meter { display: block; width: 5.5rem; height: 1px; background: var(--rule); position: relative; }
+.overture__meter::after {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 0;
+  background: var(--lamp);
+  animation: ov-meter 2900ms linear 250ms forwards;
+}
+
+/* dismissal: the panel rises off the top of the screen */
+.overture.is-lifting { opacity: 0; clip-path: inset(0 0 100% 0); }
+
+@keyframes ov-rise  { to { transform: translateY(0); } }
+@keyframes ov-fade  { to { opacity: 1; } }
+@keyframes ov-meter { to { width: 100%; } }
+
+/* ---------- the lamp: a single moving light source ---------- */
+
+.lamp {
+  position: fixed; inset: 0; z-index: 1;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(
+    620px circle at var(--mx, 50%) var(--my, 38%),
+    rgba(240, 223, 184, 0.085),
+    rgba(240, 223, 184, 0.03) 40%,
+    transparent 72%
+  );
+  transition: background 380ms linear;
+}
+
+/* ---------- masthead ---------- */
+
+.masthead {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem var(--gut);
+  background: linear-gradient(to bottom, rgba(7, 8, 10, 0.92), rgba(7, 8, 10, 0));
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--t-label);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.masthead__mark {
+  font-family: "Bodoni Moda", serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.34em;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.masthead__nav { display: flex; gap: clamp(0.85rem, 2.2vw, 2.1rem); flex-wrap: wrap; }
+
+.masthead__nav a {
+  text-decoration: none;
+  color: var(--ash);
+  padding-bottom: 3px;
+  border-bottom: 1px solid transparent;
+  transition: color 260ms var(--ease), border-color 260ms var(--ease);
+}
+.masthead__nav a:hover { color: var(--vellum); border-bottom-color: var(--lamp); }
+.masthead__nav a[aria-current="page"] { color: var(--vellum); border-bottom-color: var(--ash-dim); }
+
+/* ---------- shared shell ---------- */
+
+.shell { width: var(--shell); margin-inline: auto; position: relative; z-index: 3; }
+
+.band { padding-block: clamp(5rem, 13vh, 10rem); }
+
+.label {
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: var(--t-label);
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ash);
+  margin: 0;
+}
+
+.hairline { height: 1px; background: var(--rule); border: 0; margin: 0; }
+
+/* ---------- hero ---------- */
+
+.hero {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: grid;
+  align-content: end;
+  padding: 0 0 clamp(2.5rem, 7vh, 5rem);
+  overflow: hidden;
+}
+
+.hero__bg {
+  position: absolute; inset: 0; z-index: 0;
+}
+.hero__bg img {
+  width: 100%; height: 100%; object-fit: cover;
+  filter: brightness(0.42) contrast(1.06) saturate(0.85);
+  transform: scale(1.06);
+  animation: drift 26s ease-in-out infinite alternate;
+}
+.hero__bg::after {
+  content: ""; position: absolute; inset: 0;
+  background:
+    linear-gradient(to top, var(--void) 2%, rgba(7,8,10,0.25) 46%, rgba(7,8,10,0.7) 100%),
+    radial-gradient(120% 80% at 50% 45%, transparent 30%, var(--void) 100%);
+}
+
+@keyframes drift { from { transform: scale(1.06) translate3d(0,0,0); } to { transform: scale(1.14) translate3d(-1.4%, -1.6%, 0); } }
+
+.hero__inner { position: relative; z-index: 3; width: var(--shell); margin-inline: auto; }
+
+.hero__name {
+  font-family: "Bodoni Moda", serif;
+  font-weight: 400;
+  font-size: var(--t-hero);
+  line-height: 0.84;
+  letter-spacing: -0.02em;
+  margin: 0 0 1.4rem;
+  text-transform: uppercase;
+}
+.hero__name span { display: block; }
+.hero__name span:last-child { padding-left: 0.14em; font-style: italic; font-weight: 500; }
+
+.hero__meta {
+  display: flex; flex-wrap: wrap; gap: 0.6rem clamp(1rem, 3vw, 2.6rem);
+  align-items: center;
+  border-top: 1px solid var(--rule);
+  padding-top: 1.1rem;
+}
+
+.hero__line {
+  font-size: clamp(1.05rem, 1.6vw, 1.35rem);
+  font-style: italic;
+  color: var(--vellum);
+  margin: 0;
+  max-width: 30ch;
+}
+
+.hero__cue {
+  position: absolute; bottom: clamp(2.5rem, 7vh, 5rem); right: var(--gut);
+  margin: 0;
+  z-index: 3;
+  font-family: "Archivo", sans-serif; font-size: var(--t-label);
+  letter-spacing: 0.28em; text-transform: uppercase; color: var(--ash);
+  display: flex; align-items: center; gap: 0.7rem;
+}
+.hero__cue::after {
+  content: ""; width: 1px; height: 42px;
+  background: linear-gradient(to bottom, var(--ash), transparent);
+  animation: cue 2.6s ease-in-out infinite;
+  transform-origin: top;
+}
+@keyframes cue { 0%,100% { transform: scaleY(0.35); opacity: 0.4; } 50% { transform: scaleY(1); opacity: 1; } }
+
+/* ---------- statement ---------- */
+
+.statement { display: grid; gap: clamp(2rem, 5vw, 4.5rem); grid-template-columns: 1fr; }
+@media (min-width: 62rem) {
+  .statement { grid-template-columns: 13rem minmax(0, 1fr); }
+}
+
+.statement__body { max-width: 46rem; }
+
+.statement__lede {
+  font-family: "Bodoni Moda", serif;
+  font-size: var(--t-lg);
+  line-height: 1.18;
+  font-weight: 400;
+  margin: 0 0 1.8rem;
+  text-wrap: balance;
+}
+
+.statement__body p + p { margin-top: 1.1rem; }
+.statement__body p { color: #c3bfb6; margin: 0; max-width: var(--measure); }
+
+/* ---------- series index ---------- */
+
+.series { border-top: 1px solid var(--rule); }
+
+.series__item {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  align-items: center;
+  padding-block: clamp(2.5rem, 6vw, 4.5rem);
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+  position: relative;
+}
+@media (min-width: 54rem) {
+  .series__item { grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 0.9fr); gap: clamp(1.5rem, 4vw, 3.5rem); }
+  .series__item:nth-child(even) { grid-template-columns: minmax(0, 0.9fr) 4.5rem minmax(0, 1fr); }
+  .series__item:nth-child(even) .series__figure { order: -1; }
+}
+
+.series__numeral {
+  font-family: "Bodoni Moda", serif;
+  font-size: 1.4rem;
+  color: var(--ash-dim);
+  letter-spacing: 0.05em;
+  transition: color 400ms var(--ease);
+}
+
+.series__title {
+  font-family: "Bodoni Moda", serif;
+  font-weight: 400;
+  font-size: var(--t-xl);
+  line-height: 0.95;
+  letter-spacing: -0.015em;
+  margin: 0 0 0.9rem;
+  text-transform: uppercase;
+}
+
+.series__note { color: var(--ash); margin: 0 0 1.1rem; max-width: 34ch; font-size: 1rem; }
+
+.series__count {
+  font-family: "Archivo", sans-serif; font-size: var(--t-label);
+  letter-spacing: 0.26em; text-transform: uppercase; color: var(--ash);
+  display: inline-flex; align-items: center; gap: 0.7rem;
+}
+.series__count::after {
+  content: ""; width: 2.2rem; height: 1px; background: var(--ash-dim);
+  transition: width 400ms var(--ease), background 400ms var(--ease);
+}
+
+.series__figure { margin: 0; overflow: hidden; }
+.series__figure img {
+  width: 100%; aspect-ratio: 4 / 5; object-fit: cover;
+  filter: brightness(0.55) contrast(1.05) saturate(0.9);
+  transform: scale(1.01);
+  transition: filter 900ms var(--ease), transform 1200ms var(--ease);
+}
+
+.series__item:hover .series__figure img,
+.series__item:focus-visible .series__figure img { filter: brightness(1); transform: scale(1.05); }
+.series__item:hover .series__numeral { color: var(--lamp); }
+.series__item:hover .series__count::after { width: 4.5rem; background: var(--lamp); }
+
+/* ---------- plate column (gallery) ---------- */
+
+.plates { display: grid; gap: clamp(4rem, 11vh, 9rem); padding-block: clamp(3rem, 8vh, 6rem); }
+
+.plate { margin: 0; display: grid; gap: 0.9rem; }
+
+/* the frame reserves space at a default 3:2 and is corrected to the
+   photograph's true ratio inline (or by script on load), so nothing jumps */
+.plate__frame {
+  position: relative; overflow: hidden;
+  background: var(--void-lift);
+  aspect-ratio: 3 / 2;
+}
+
+.plate img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+  filter: brightness(0.58) contrast(1.03) saturate(0.92);
+  transition: filter 1200ms var(--ease);
+}
+.plate.is-lit img { filter: brightness(1) contrast(1) saturate(1); }
+
+/* ---------- plate caption ----------
+   Number and series set as specimen-tag labels, the title in the display
+   italic, one line of description. The whole block assembles itself as the
+   photograph reaches the middle of the screen and is lit. */
+
+.plate__caption {
+  position: relative;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline; column-gap: 1.5rem; row-gap: 0.3rem;
+  padding-top: 1.05rem;
+}
+
+.plate__rule {
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: var(--rule);
+  transform: scaleX(0); transform-origin: left;
+}
+.js .plate.is-lit .plate__rule {
+  transform: scaleX(1);
+  transition: transform 1400ms var(--ease);
+}
+.js .plate .plate__rule { transition: transform 500ms var(--ease); }
+
+.plate__index, .plate__series {
+  font-family: "Archivo", system-ui, sans-serif; font-size: var(--t-label);
+  font-weight: 500; letter-spacing: 0.26em; text-transform: uppercase;
+  color: var(--ash); margin: 0;
+}
+.plate__series { grid-column: 2; grid-row: 1; justify-self: end; color: var(--ash-dim); }
+
+.plate__title {
+  grid-column: 1 / -1;
+  font-family: "Bodoni Moda", serif; font-weight: 400; font-style: italic;
+  font-size: clamp(1.35rem, 2.3vw, 2.05rem);
+  line-height: 1.12; letter-spacing: -0.01em;
+  margin: 0.15rem 0 0; text-wrap: balance;
+}
+
+.plate__brief {
+  grid-column: 1 / -1;
+  margin: 0.5rem 0 0; max-width: var(--measure);
+  color: #a29e96; font-size: 1rem; line-height: 1.6;
+}
+
+/* the stagger: label, then title, then description */
+.js .plate__index, .js .plate__series,
+.js .plate__title, .js .plate__brief {
+  opacity: 0; transform: translateY(12px);
+  transition: opacity 800ms var(--ease), transform 800ms var(--ease);
+}
+.js .plate.is-lit .plate__index,
+.js .plate.is-lit .plate__series { opacity: 1; transform: none; transition-delay: 120ms; }
+.js .plate.is-lit .plate__title  { opacity: 1; transform: none; transition-delay: 240ms; }
+.js .plate.is-lit .plate__brief  { opacity: 1; transform: none; transition-delay: 360ms; }
+
+/* ---------- expand control ---------- */
+
+.plate__expand {
+  position: absolute; right: clamp(0.7rem, 1.6vw, 1.2rem);
+  bottom: clamp(0.7rem, 1.6vw, 1.2rem); z-index: 4;
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  padding: 0.62rem 1.05rem;
+  background: rgba(7, 8, 10, 0.55);
+  -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
+  border: 1px solid rgba(233, 228, 217, 0.2);
+  color: var(--vellum); text-decoration: none;
+  font-family: "Archivo", system-ui, sans-serif; font-size: var(--t-label);
+  font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase;
+  transition: opacity 420ms var(--ease), transform 420ms var(--ease),
+              border-color 320ms var(--ease), background 320ms var(--ease);
+}
+.plate__expand:hover { border-color: var(--lamp); background: rgba(7, 8, 10, 0.78); }
+
+/* crop marks, drawn rather than typed so no glyph has to exist */
+.plate__expand-glyph { position: relative; width: 0.78rem; height: 0.78rem; flex: none; }
+.plate__expand-glyph::before, .plate__expand-glyph::after {
+  content: ""; position: absolute; width: 0.34rem; height: 0.34rem;
+}
+.plate__expand-glyph::before { top: 0; left: 0; border-top: 1px solid currentColor; border-left: 1px solid currentColor; }
+.plate__expand-glyph::after { bottom: 0; right: 0; border-bottom: 1px solid currentColor; border-right: 1px solid currentColor; }
+
+/* On anything with a real pointer the control waits for the hover; on touch,
+   where there is no hover to wait for, it simply stays visible. */
+@media (hover: hover) {
+  .plate__expand { opacity: 0; transform: translateY(10px); pointer-events: none; }
+  .plate:hover .plate__expand,
+  .plate__expand:focus-visible { opacity: 1; transform: none; pointer-events: auto; }
+}
+
+@media (hover: hover) {
+  .plate:hover .plate__frame img { transform: scale(1.012); }
+  .plate__frame img { transition: filter 1200ms var(--ease), transform 1600ms var(--ease); }
+}
+
+/* Rhythm — widths vary so the column breathes like a hung wall.
+   --ar is the photograph's own width/height, set inline. The svh term
+   keeps a tall portrait from running past a screen height; nothing is
+   ever cropped, the frame just narrows to suit. */
+.plate { --cap: calc(84vh * var(--ar, 1.5)); --cap: calc(84svh * var(--ar, 1.5)); }
+
+.plate--full  { width: min(100%, var(--cap)); justify-self: center; }
+.plate--wide  { width: min(100%, 76rem, var(--cap)); justify-self: center; }
+.plate--mid   { width: min(100%, 54rem, var(--cap)); }
+.plate--small { width: min(100%, 38rem, var(--cap)); justify-self: center; }
+.plate--right { width: min(100%, 46rem, var(--cap)); justify-self: end; }
+.plate--left  { width: min(100%, 46rem, var(--cap)); justify-self: start; }
+
+/* ---------- page header for inner pages ---------- */
+
+.pagehead { padding-top: clamp(7rem, 18vh, 12rem); }
+
+.pagehead__title {
+  font-family: "Bodoni Moda", serif; font-weight: 400;
+  font-size: var(--t-hero); line-height: 0.86; letter-spacing: -0.022em;
+  margin: 0.6rem 0 1.5rem; text-transform: uppercase;
+}
+
+.pagehead__note {
+  color: var(--ash); max-width: 40ch; margin: 0 0 2rem;
+  font-size: clamp(1.05rem, 1.5vw, 1.25rem); font-style: italic;
+}
+
+.pagehead__rule { display: flex; align-items: center; gap: 1rem; color: var(--ash-dim); }
+.pagehead__rule .hairline { flex: 1; }
+
+/* ---------- book page ---------- */
+
+.litany { display: grid; gap: 0.35rem; margin: 0 0 clamp(2.5rem, 6vw, 4rem); }
+.litany p {
+  font-family: "Bodoni Moda", serif;
+  font-size: clamp(1.6rem, 4.2vw, 3.4rem);
+  line-height: 1.1; margin: 0; font-weight: 400;
+  color: var(--ash);
+  transition: color 700ms var(--ease);
+}
+.litany p:last-child { color: var(--vellum); font-style: italic; }
+.litany p:hover { color: var(--vellum); }
+
+.split { display: grid; gap: clamp(2rem, 5vw, 4rem); grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 60rem) { .split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+
+.spec { list-style: none; margin: 1.6rem 0 0; padding: 0; }
+.spec li {
+  display: grid; grid-template-columns: 2.4rem 1fr; gap: 1rem;
+  padding: 0.85rem 0; border-top: 1px solid var(--rule);
+  font-size: 1rem; color: #c3bfb6;
+}
+.spec li span {
+  font-family: "Archivo", sans-serif; font-size: var(--t-label);
+  letter-spacing: 0.18em; color: var(--ash-dim); padding-top: 0.35em;
+}
+
+.bookgrid { display: grid; gap: 1rem; grid-template-columns: repeat(2, 1fr); margin-top: 2.5rem; }
+@media (min-width: 60rem) { .bookgrid { grid-template-columns: repeat(3, 1fr); } }
+.bookgrid img {
+  width: 100%; aspect-ratio: 1; object-fit: cover;
+  filter: brightness(0.6) saturate(0.9);
+  transition: filter 800ms var(--ease);
+}
+.bookgrid img:hover { filter: brightness(1) saturate(1); }
+
+/* ---------- about ---------- */
+
+.about { display: grid; gap: clamp(2rem, 5vw, 4.5rem); grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 60rem) { .about { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr); } }
+.about__portrait img { width: 100%; filter: brightness(0.75) contrast(1.05) saturate(0.85); }
+
+/* ---------- contact ---------- */
+
+.contact__mail {
+  font-family: "Bodoni Moda", serif;
+  font-size: clamp(1.5rem, 5vw, 3.6rem);
+  text-decoration: none; display: inline-block;
+  line-height: 1.1; letter-spacing: -0.01em;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 0.12em;
+  transition: border-color 400ms var(--ease), color 400ms var(--ease);
+  overflow-wrap: anywhere;
+}
+.contact__mail:hover { border-bottom-color: var(--lamp); color: var(--lamp); }
+
+.field { display: grid; gap: 0.5rem; margin-bottom: 1.2rem; }
+.field label {
+  font-family: "Archivo", sans-serif; font-size: var(--t-label);
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--ash);
+}
+.field input, .field textarea {
+  background: transparent; border: 0; border-bottom: 1px solid var(--rule);
+  color: var(--vellum); font-family: inherit; font-size: 1.02rem;
+  padding: 0.6rem 0; width: 100%;
+  transition: border-color 300ms var(--ease);
+}
+.field input:focus, .field textarea:focus { outline: none; border-bottom-color: var(--lamp); }
+.field textarea { resize: vertical; min-height: 7rem; }
+
+.btn {
+  display: inline-block; margin-top: 0.6rem;
+  background: transparent; color: var(--vellum);
+  border: 1px solid var(--rule);
+  font-family: "Archivo", sans-serif; font-size: var(--t-label);
+  letter-spacing: 0.26em; text-transform: uppercase;
+  padding: 0.95rem 2.2rem; cursor: pointer;
+  transition: border-color 320ms var(--ease), color 320ms var(--ease), background 320ms var(--ease);
+}
+.btn:hover { border-color: var(--lamp); color: var(--lamp); }
+
+/* ---------- next/prev + footer ---------- */
+
+.onward {
+  display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: space-between;
+  align-items: baseline; padding-block: clamp(3rem, 8vh, 6rem);
+  border-top: 1px solid var(--rule);
+}
+.onward a {
+  font-family: "Bodoni Moda", serif; font-size: var(--t-lg);
+  text-decoration: none; text-transform: uppercase; letter-spacing: -0.01em;
+  transition: color 320ms var(--ease);
+}
+.onward a:hover { color: var(--lamp); }
+
+.colophon {
+  border-top: 1px solid var(--rule);
+  padding-block: 2.2rem 3rem;
+  display: flex; flex-wrap: wrap; gap: 1rem 2rem; justify-content: space-between;
+  font-family: "Archivo", sans-serif; font-size: var(--t-label);
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--ash);
+}
+.colophon a { text-decoration: none; }
+.colophon a:hover { color: var(--vellum); }
+
+/* ---------- lightbox ----------
+   The photograph given the whole screen, with its plate number, title and
+   note kept underneath it. Built by script; without script the expand
+   control is an ordinary link straight to the full-size file. */
+
+.lightbox {
+  position: fixed; inset: 0; z-index: 80;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto;
+  background: rgba(4, 5, 6, 0.975);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  opacity: 0; visibility: hidden;
+  transition: opacity 420ms var(--ease), visibility 0s linear 420ms;
+}
+.lightbox.is-open { opacity: 1; visibility: visible; transition-delay: 0s; }
+
+.lightbox__stage {
+  display: grid; min-height: 0;
+  padding: clamp(3.6rem, 9vh, 6rem) clamp(1rem, 6vw, 5.5rem) clamp(0.5rem, 2vh, 1.5rem);
+}
+
+/* The image stretches to fill the stage and object-fit does the centring.
+   A percentage max-height would resolve against an auto-sized row here and
+   let a tall plate run on past the caption. */
+.lightbox__img {
+  width: 100%; height: 100%; min-height: 0;
+  object-fit: contain;
+  opacity: 0; transform: scale(0.985);
+  transition: opacity 700ms var(--ease), transform 900ms var(--ease);
+}
+.lightbox.is-ready .lightbox__img { opacity: 1; transform: none; }
+
+.lightbox__bar {
+  width: var(--shell); margin-inline: auto;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end; column-gap: 2rem;
+  border-top: 1px solid var(--rule);
+  padding: 1.1rem 0 clamp(1.4rem, 4vh, 2.4rem);
+}
+
+.lightbox__index, .lightbox__count {
+  font-family: "Archivo", system-ui, sans-serif; font-size: var(--t-label);
+  font-weight: 500; letter-spacing: 0.26em; text-transform: uppercase;
+  color: var(--ash); margin: 0;
+}
+.lightbox__count { grid-column: 2; grid-row: 1; justify-self: end; color: var(--ash-dim); }
+
+.lightbox__title {
+  grid-column: 1 / -1;
+  font-family: "Bodoni Moda", serif; font-weight: 400; font-style: italic;
+  font-size: clamp(1.4rem, 2.6vw, 2.2rem); line-height: 1.12;
+  margin: 0.2rem 0 0;
+}
+.lightbox__brief {
+  grid-column: 1 / -1; margin: 0.45rem 0 0;
+  max-width: var(--measure); color: #a29e96; font-size: 1rem;
+}
+
+.lightbox__close, .lightbox__nav {
+  position: absolute; z-index: 3;
+  background: rgba(7, 8, 10, 0.5); border: 1px solid rgba(233, 228, 217, 0.18);
+  color: var(--vellum); cursor: pointer;
+  display: grid; place-items: center;
+  transition: border-color 300ms var(--ease), background 300ms var(--ease), opacity 300ms var(--ease);
+}
+.lightbox__close:hover, .lightbox__nav:hover { border-color: var(--lamp); background: rgba(7, 8, 10, 0.8); }
+
+.lightbox__close {
+  top: clamp(0.9rem, 2.4vh, 1.6rem); right: var(--gut);
+  width: 2.9rem; height: 2.9rem; font-size: 1.15rem; line-height: 1;
+  font-family: "Archivo", system-ui, sans-serif;
+}
+
+.lightbox__nav {
+  top: 50%; transform: translateY(-50%);
+  width: 2.9rem; height: 4.4rem;
+  font-family: "Archivo", system-ui, sans-serif; font-size: 1rem;
+}
+.lightbox__nav--prev { left: clamp(0.5rem, 1.6vw, 1.4rem); }
+.lightbox__nav--next { right: clamp(0.5rem, 1.6vw, 1.4rem); }
+.lightbox__nav[disabled] { opacity: 0.25; cursor: default; }
+.lightbox__nav[disabled]:hover { border-color: rgba(233, 228, 217, 0.18); background: rgba(7, 8, 10, 0.5); }
+
+@media (max-width: 40rem) {
+  .lightbox__nav { top: auto; bottom: 0.6rem; transform: none; width: 2.6rem; height: 2.6rem; }
+  .lightbox__brief { display: none; }
+}
+
+html.lightbox-open { overflow: hidden; }
+
+/* ---------- reveal (progressive enhancement) ---------- */
+
+.js .reveal { opacity: 0; transform: translateY(26px); }
+.js .reveal.is-in {
+  opacity: 1; transform: none;
+  transition: opacity 1100ms var(--ease), transform 1100ms var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .js .reveal, .js .reveal.is-in { opacity: 1; transform: none; transition: none; }
+  .hero__bg img { animation: none; transform: scale(1.04); }
+  .hero__cue::after { animation: none; }
+  .lamp { transition: none; }
+  .plate img { filter: brightness(1); transition: none; transform: none; }
+
+  /* the entrance still happens, it just stops moving */
+  .overture__line i { transform: none; animation: none; }
+  .overture__mark, .overture__sub, .overture__enter { opacity: 1; animation: none; }
+  .overture__meter::after { animation: ov-meter 2900ms linear 250ms forwards; }
+  .overture-armed .overture { transition: opacity 300ms linear; }
+  .overture.is-lifting { clip-path: none; }
+  .overture__glow { transition: none; }
+
+  /* captions arrive with the plate rather than assembling */
+  .js .plate__index, .js .plate__series, .js .plate__title, .js .plate__brief,
+  .js .plate.is-lit .plate__index, .js .plate.is-lit .plate__series,
+  .js .plate.is-lit .plate__title, .js .plate.is-lit .plate__brief {
+    opacity: 1; transform: none; transition: none;
+  }
+  .plate__rule, .js .plate.is-lit .plate__rule { transform: scaleX(1); transition: none; }
+  .lightbox__img { opacity: 1; transform: none; transition: none; }
+
+  * { scroll-behavior: auto !important; }
+}
