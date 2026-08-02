@@ -11,7 +11,7 @@ Everything from the old site is here: **Shadow** (36), **Light** (24),
 ## What's in the box
 
 ```
-site/                 ← this is the website. Upload this folder.
+docs/                 ← this is the website. GitHub Pages serves this folder.
   index.html
   shadow.html  light.html  monochrome.html
   notice-it.html  about.html  contact.html  404.html
@@ -19,13 +19,13 @@ site/                 ← this is the website. Upload this folder.
   assets/css/site.css
   assets/js/site.js
 
-build.py              regenerates site/ from your photo list
+build.py              regenerates docs/ from your photo list
 photos.py             the photo list — this is the file you edit
 captions.py           the title and one-line note under each photograph
 download-images.py    pulls your photographs off Wix onto your machine
 ```
 
-You can open `site/index.html` in a browser right now to see it.
+You can open `docs/index.html` in a browser right now to see it.
 
 ---
 
@@ -33,7 +33,7 @@ You can open `site/index.html` in a browser right now to see it.
 
 ### 1. Look at it
 
-Open `site/index.html`. Right now the photographs are still being served from
+Open `docs/index.html`. Right now the photographs are still being served from
 Wix's image CDN, which is why it works instantly.
 
 ### 2. Get your photographs off Wix — before you cancel
@@ -54,7 +54,7 @@ and run:
 python3 build.py
 ```
 
-Now copy the `images/` folder into `site/`. The site no longer touches Wix.
+Now copy the `images/` folder into `docs/`. The site no longer touches Wix.
 **Don't cancel the Wix plan until this step is finished** — the download
 script reads from their CDN.
 
@@ -86,9 +86,19 @@ All of these are free for a site this size, and all of them let you point
 
 | Host | How |
 | --- | --- |
-| **Cloudflare Pages** | Drag the `site` folder onto the dashboard. Free custom domain, free SSL. |
+| **Cloudflare Pages** | Drag the `docs` folder onto the dashboard. Free custom domain, free SSL. |
 | **Netlify** | Same — drag and drop at app.netlify.com/drop. |
-| **GitHub Pages** | Push `site/` to a repo, enable Pages in settings. |
+| **GitHub Pages** | ← this is what the site uses now. See below. |
+
+This site is on **GitHub Pages**, serving the `docs/` folder of
+`maximax1501/maximilienbozon.com` on the `main` branch. Pages will only serve
+the repository root or a folder named `docs/`, which is why the built site
+lives under that name.
+
+To publish a change: run `python3 build.py`, then commit and push. That's it.
+
+The `docs/CNAME` file holds the custom domain and is written by `build.py`,
+so rebuilding can never knock the domain off the site.
 
 Whichever you choose, add `maximilienbozon.com` as a custom domain in their
 dashboard and follow their DNS instructions.
@@ -110,11 +120,11 @@ resolves to it.
 
 ## Adding photographs later
 
-1. Drop the image files into `site/images/`.
+1. Drop the image files into `docs/images/`.
 2. Add the filenames to the right list in `photos.py`.
 3. Add a title and note in `captions.py` (optional — see below).
 4. Run `python3 build.py`.
-5. Re-upload the `site` folder.
+5. Commit and push — GitHub Pages redeploys on its own.
 
 That's the whole workflow. Order in the list is order on the page.
 

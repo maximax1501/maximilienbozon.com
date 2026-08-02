@@ -11,7 +11,9 @@ import shutil
 import captions
 import photos
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "site")
+# The published folder. Named "docs" because GitHub Pages will only serve
+# the repository root or a folder called docs/ — nothing else.
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs")
 
 # Where images come from.
 #   "wix"   -> served from Wix's CDN (works right now, before you cancel)
@@ -529,6 +531,11 @@ def build_extras():
           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
           "%s\n</urlset>\n" % urls)
     write("robots.txt", "User-agent: *\nAllow: /\nSitemap: %s/sitemap.xml\n" % SITE_URL)
+
+    # GitHub Pages reads the custom domain from this file. It lives in the
+    # published folder, so writing it here means a rebuild can never drop
+    # the domain and knock the site offline.
+    write("CNAME", SITE_URL.split("//", 1)[1].rstrip("/") + "\n")
 
 
 def main():
