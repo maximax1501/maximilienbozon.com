@@ -2,3 +2,8 @@
 __pycache__/
 *.pyc
 .claude/settings.local.json
+
+# Working copy of the downloaded photographs. The committed copy that the
+# site actually serves is site/images/ — this one is just the staging folder
+# download-images.py writes into.
+/images/

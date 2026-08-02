@@ -16,7 +16,7 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "site")
 # Where images come from.
 #   "wix"   -> served from Wix's CDN (works right now, before you cancel)
 #   "local" -> served from ./images/<filename> in this folder
-SOURCE = "wix"
+SOURCE = "local"
 
 WIX_PREFIX = "https://static.wixstatic.com/media/7dafb7_"
 SITE_URL = "https://maximilienbozon.com"
