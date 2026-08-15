@@ -92,7 +92,7 @@ def masthead(current):
 def colophon():
     return """<footer class="colophon shell">
   <span>&copy; Maximilien Bozon</span>
-  <span>Wildlife photography &middot; London</span>
+  <span>Wildlife photography &middot; Paris &amp; London</span>
   <a href="mailto:%s">%s</a>
 </footer>""" % (EMAIL, EMAIL)
 
@@ -120,7 +120,7 @@ OVERTURE = """<div class="overture" data-overture>
       <span class="overture__line"><i>Maximilien</i></span>
       <span class="overture__line"><i>Bozon</i></span>
     </p>
-    <p class="overture__sub">Wildlife photography &middot; London</p>
+    <p class="overture__sub">Wildlife photography &middot; Paris &amp; London</p>
   </div>
   <button class="overture__enter" type="button" data-enter>
     <span>Enter</span>
@@ -322,7 +322,7 @@ def build_home():
   <div class="hero__inner">
     <h1 class="hero__name"><span>Maximilien</span><span>Bozon</span></h1>
     <div class="hero__meta">
-      <p class="label">Wildlife photography &middot; London</p>
+      <p class="label">Wildlife photography &middot; Paris &amp; London</p>
       <p class="hero__line">Animals emerging from darkness, where light reveals form, structure and fragility.</p>
     </div>
   </div>
@@ -333,7 +333,7 @@ def build_home():
   <div class="statement reveal">
     <p class="label">Statement</p>
     <div class="statement__body">
-      <p class="statement__lede">Maximilien Bozon is a photographer and veterinarian based in London.</p>
+      <p class="statement__lede">Maximilien Bozon is a photographer and veterinarian based between Paris and London.</p>
       <p>Influenced by his scientific background, he approaches animal bodies both as living beings and as anatomical forms.</p>
       <p>Through minimal compositions and controlled light, his images oscillate between observation and abstraction. By isolating his subjects in shadow, he invites the viewer to reconsider the way we perceive animals &mdash; not only as species, but as physical presences.</p>
     </div>
@@ -371,7 +371,7 @@ def build_home():
 
     write("index.html", page(
         "Maximilien Bozon — Wildlife photography",
-        "Wildlife photography by Maximilien Bozon, photographer and veterinarian based in London. Animals emerging from darkness.",
+        "Wildlife photography by Maximilien Bozon, photographer and veterinarian based between Paris and London. Animals emerging from darkness.",
         body, "index.html", hero, intro=True))
 
 
@@ -458,7 +458,7 @@ def build_about():
       <img src="%(portrait)s" alt="Maximilien Bozon" loading="lazy" decoding="async">
     </figure>
     <div class="statement__body">
-      <p class="statement__lede">A photographer and veterinarian based in London.</p>
+      <p class="statement__lede">A photographer and veterinarian based between Paris and London.</p>
       <p>His work explores the presence of animals emerging from darkness, where light reveals form, structure and fragility.</p>
       <p>Influenced by his scientific background, he approaches animal bodies both as living beings and as anatomical forms.</p>
       <p>Through minimal compositions and controlled light, his images oscillate between observation and abstraction.</p>
@@ -475,7 +475,7 @@ def build_about():
 
     write("about.html", page(
         "About — Maximilien Bozon",
-        "Maximilien Bozon is a photographer and veterinarian based in London, working with animals emerging from darkness.",
+        "Maximilien Bozon is a photographer and veterinarian based between Paris and London, working with animals emerging from darkness.",
         body, "about.html", photos.PORTRAIT))
 
 
@@ -491,7 +491,7 @@ def build_contact():
     <div>
       <p class="label">By email</p>
       <p><a class="contact__mail" href="mailto:%(email)s">%(email)s</a></p>
-      <p style="color:var(--ash);margin-top:2rem">Based in London. Replies usually within a few days.</p>
+      <p style="color:var(--ash);margin-top:2rem">Based between Paris and London. Replies usually within a few days.</p>
     </div>
     <div>
       <p class="label">Or leave a message</p>
