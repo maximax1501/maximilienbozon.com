@@ -128,6 +128,24 @@
     }
   );
 
+  /* --- a plate that failed to arrive gets one more chance -------------- */
+  /* A dropped connection leaves the frame empty and the alt text bare.
+     Ask again once, past the cache, rather than leave a hole on the wall. */
+  Array.prototype.forEach.call(
+    document.querySelectorAll(".plate__frame img"),
+    function (img) {
+      var retried = false;
+      img.addEventListener("error", function () {
+        if (retried) return;
+        retried = true;
+        var base = img.src.split("#")[0];
+        window.setTimeout(function () {
+          img.src = base + (base.indexOf("?") < 0 ? "?" : "&") + "retry=1";
+        }, 600);
+      });
+    }
+  );
+
   /* --- open a plate full screen --------------------------------------- */
   /* The expand control is a plain link to the full-size file, so it still
      works with none of this. Here it becomes a viewer instead. */
