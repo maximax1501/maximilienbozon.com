@@ -26,7 +26,7 @@ SOURCE = "local"
 
 WIX_PREFIX = "https://static.wixstatic.com/media/7dafb7_"
 SITE_URL = "https://maximilienbozon.com"
-EMAIL = "contact@maximilienbozon.com"  # <-- change to your real address
+EMAIL = "maximilien.bozon@gmail.com"  # <-- change to your real address
 
 WIDTHS = [720, 1200, 1800, 2400]
 

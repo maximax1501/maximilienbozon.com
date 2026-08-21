@@ -67,7 +67,7 @@ capped at 2400px, not your full-resolution files.
 Two places in `build.py`, near the top:
 
 ```python
-EMAIL = "contact@maximilienbozon.com"   # ← your real address
+EMAIL = "maximilien.bozon@gmail.com"   # ← your real address
 ```
 
 I couldn't find an address on the old site, so this is a placeholder.
