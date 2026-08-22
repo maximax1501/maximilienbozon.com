@@ -19,6 +19,9 @@
   --measure: 34rem;
 
   --t-hero:  clamp(3.4rem, 13.5vw, 13rem);
+  /* Inner pages carry a name, not an entrance: smaller than the home page
+     hero, still the largest thing above the work. */
+  --t-page:  clamp(2.6rem, 9vw, 8.5rem);
   --t-xl:    clamp(2.4rem, 6.5vw, 5.5rem);
   --t-lg:    clamp(1.7rem, 3.2vw, 2.9rem);
   --t-md:    clamp(1.25rem, 2vw, 1.7rem);
@@ -421,6 +424,99 @@ html.overture-armed { overflow: hidden; }
 .series--projects .series__title { font-size: var(--t-md); }
 .series--projects .series__note { margin-bottom: 0; }
 
+/* ---------- plate index: the contact sheet above a series ----------
+   Navigation only. The plates below stay one uninterrupted numbered run;
+   the grouping lives here, where it helps somebody find a picture, and
+   nowhere else. Thumbnails sit dim until pointed at, so the strip reads as
+   a margin note rather than competing with the photographs. */
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+.pindex {
+  padding-top: clamp(2rem, 5vh, 3.4rem);
+  display: grid;
+  gap: clamp(1.4rem, 3vh, 2.2rem);
+}
+
+.pindex__group { display: grid; gap: 0.85rem; }
+
+.pindex__label {
+  display: flex; align-items: baseline; gap: 0.7rem;
+  color: var(--ash-dim);
+}
+
+.pindex__label span {
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  color: var(--rule);
+  color: #3a3d42;
+}
+
+.pindex__strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pindex__item {
+  position: relative;
+  display: block;
+  height: 84px;
+  aspect-ratio: var(--ar, 1.5);
+  overflow: hidden;
+  background: var(--void-lift);
+  outline-offset: 3px;
+}
+
+.pindex__item img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  filter: brightness(0.42) saturate(0.55);
+  transition: filter 420ms var(--ease), transform 420ms var(--ease);
+}
+
+.pindex__item:hover img,
+.pindex__item:focus-visible img {
+  filter: brightness(1) saturate(1);
+  transform: scale(1.04);
+}
+
+/* The number only surfaces on the one being pointed at — forty roman
+   numerals at once would be a wall of type, not an index. */
+.pindex__num {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 0.55rem 0.3rem 0.2rem;
+  font-family: "Archivo", system-ui, sans-serif;
+  font-size: 0.56rem;
+  letter-spacing: 0.14em;
+  text-align: center;
+  color: var(--lamp);
+  background: linear-gradient(to top, rgba(7, 8, 10, 0.85), transparent);
+  opacity: 0;
+  transition: opacity 300ms var(--ease);
+}
+
+.pindex__item:hover .pindex__num,
+.pindex__item:focus-visible .pindex__num { opacity: 1; }
+
+@media (max-width: 700px) {
+  .pindex__item { height: 58px; }
+  .pindex__strip { gap: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pindex__item img { transition: none; }
+  .pindex__item:hover img,
+  .pindex__item:focus-visible img { transform: none; }
+}
+
+/* Landing on a plate from the index must not tuck it under the masthead. */
+.plate { scroll-margin-top: clamp(5rem, 12vh, 8rem); }
+
 /* ---------- plate column (gallery) ---------- */
 
 .plates { display: grid; gap: clamp(4rem, 11vh, 9rem); padding-block: clamp(3rem, 8vh, 6rem); }
@@ -564,7 +660,7 @@ html.overture-armed { overflow: hidden; }
 
 .pagehead__title {
   font-family: "Bodoni Moda", serif; font-weight: 400;
-  font-size: var(--t-hero); line-height: 0.86; letter-spacing: -0.022em;
+  font-size: var(--t-page); line-height: 0.88; letter-spacing: -0.02em;
   margin: 0.6rem 0 1.5rem; text-transform: uppercase;
 }
 

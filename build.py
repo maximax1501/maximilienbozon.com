@@ -37,6 +37,10 @@ WIDTHS = [720, 1200, 1800, 2400]
 # for nothing in return.
 MASTERS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
 MAX_EDGE = 2000
+
+# The index strip at the top of a series page draws each plate about
+# 90px tall, so 400 covers a high-density screen and nothing more.
+THUMB_EDGE = 400
 COPYRIGHT = "© Maximilien Bozon"
 
 
@@ -51,6 +55,18 @@ def srcset(fname):
         return ""
     parts = ["%s %dw" % (src(fname, w), w) for w in WIDTHS]
     return ' srcset="%s" sizes="(max-width: 900px) 100vw, 80vw"' % ", ".join(parts)
+
+
+def thumb(fname):
+    """The small copy used by the index at the top of a series page.
+
+    A series index shows every plate at once, so it must never load the
+    plates themselves — forty 2000px photographs above the fold would undo
+    the whole point of lazy-loading the column below.
+    """
+    if SOURCE == "local":
+        return "images/thumbs/" + fname.replace("~mv2", "")
+    return src(fname, THUMB_EDGE)
 
 
 ROMAN = [
@@ -260,6 +276,80 @@ def plate(fname, index, series, ratios=None, caps=None, numeral=None, home=None)
     }
 
 
+# A grouped index is only worth the space when the series genuinely holds
+# several kinds of animal. One group of twenty-two birds beside three
+# groups of one is not a classification, it is a list with headings on it —
+# so a series like that gets the same strip, ungrouped.
+GROUP_MIN = 3
+GROUPS_NEEDED = 2
+
+
+def grouped(files):
+    """The plates of a series arranged by animal group, or None for a flat
+    index. Returns [(label, [(fname, plate number), ...]), ...] in the fixed
+    order set by photos.GROUPS, so two series never disagree about it."""
+    buckets = {}
+    for i, f in enumerate(files):
+        buckets.setdefault(photos.SPECIES.get(f[:6], "other"), []).append((f, i + 1))
+
+    shown = []
+    for keys, label in photos.GROUPS:
+        if isinstance(keys, str):
+            keys = (keys,)
+        items = sorted((pair for k in keys for pair in buckets.get(k, [])),
+                       key=lambda pair: pair[1])
+        if items:
+            shown.append((label, items))
+
+    # The threshold is measured on the groups as they would appear, not on
+    # the raw keys behind them — what matters is what the visitor sees.
+    if len([1 for _label, items in shown if len(items) >= GROUP_MIN]) < GROUPS_NEEDED:
+        return None
+    return shown
+
+
+def index_thumb(fname, number, ratios, caps):
+    dims = (ratios or {}).get(fname[:6], (3, 2))
+    title = (caps or {}).get(fname[:6], ("", ""))[0]
+    numeral = roman(number)
+    label = "Plate %s%s" % (numeral, " — " + title if title else "")
+    return ('<a class="pindex__item" href="#plate-%s" title="%s" '
+            'style="--ar: %.4f">'
+            '<img src="%s" alt="" loading="lazy" decoding="async">'
+            '<span class="pindex__num">%s</span>'
+            '<span class="visually-hidden">%s</span></a>'
+            % (fname[:6], esc(label), dims[0] / float(dims[1]),
+               thumb(fname), numeral, esc(label)))
+
+
+def plate_index(files, ratios, caps):
+    """The contact sheet above the plates.
+
+    It is navigation and nothing else: every plate keeps its number and its
+    place in the single run below, and the grouping exists only here, where
+    it helps somebody find a picture rather than telling them what the
+    series is about.
+    """
+    groups = grouped(files)
+
+    if groups is None:
+        strip = "".join(index_thumb(f, i + 1, ratios, caps)
+                        for i, f in enumerate(files))
+        blocks = '<div class="pindex__strip">%s</div>' % strip
+    else:
+        blocks = "\n".join(
+            '<div class="pindex__group">'
+            '<p class="pindex__label label">%s <span>%d</span></p>'
+            '<div class="pindex__strip">%s</div></div>'
+            % (esc(label), len(items),
+               "".join(index_thumb(f, n, ratios, caps) for f, n in items))
+            for label, items in groups)
+
+    return """<nav class="pindex shell reveal" aria-label="Plate index">
+%s
+</nav>""" % blocks
+
+
 def gallery_page(slug, title, note, files, ratios=None, nxt=None, caps=None):
     plates = "\n".join(plate(f, i, title, ratios, caps) for i, f in enumerate(files))
     onward = ""
@@ -278,11 +368,14 @@ def gallery_page(slug, title, note, files, ratios=None, nxt=None, caps=None):
   <div class="pagehead__rule"><span class="label">%d plates</span><hr class="hairline"></div>
 </section>
 
+%s
+
 <section class="plates shell">
 %s
 </section>
 
-%s""" % (title, note, len(files), plates, onward)
+%s""" % (title, note, len(files), plate_index(files, ratios, caps),
+         plates, onward)
 
     write(slug, page(
         "%s — Maximilien Bozon" % title,
@@ -356,21 +449,32 @@ def home_of(fname):
 def study_page(slug, title, kind, note, files):
     """A project built from plates that already live in a series."""
     plates = []
+    own = 0
     for i, fname in enumerate(files):
         found = home_of(fname)
-        if not found:
-            print("  projects: %s is in no series — skipping" % fname[:6])
-            continue
-        home_slug, series, numeral, ratios, caps = found
-        plates.append(plate(fname, i, series, ratios, caps, numeral=numeral,
-                            home="%s#plate-%s" % (home_slug, fname[:6])))
+        if found:
+            home_slug, series, numeral, ratios, caps = found
+            home = "%s#plate-%s" % (home_slug, fname[:6])
+        else:
+            # Published here and nowhere else. The study is this plate's only
+            # home, so it numbers the picture itself instead of borrowing a
+            # number — still exactly one identity, just not a series one.
+            own += 1
+            series, numeral, home = title, roman(own), None
+            ratios, caps = photos.STUDY_AR, captions.STUDY
+        plates.append(plate(fname, i, series, ratios, caps,
+                            numeral=numeral, home=home))
+
+    # Only claim the plates came from the series when all of them did.
+    count = ("%d plates, drawn from the series" % len(plates) if not own
+             else "%d plates" % len(plates))
 
     body = """<section class="pagehead shell">
   <p class="label">%s</p>
   <h1 class="pagehead__title">%s</h1>
   <p class="pagehead__note">%s</p>
   <div class="pagehead__rule">
-    <span class="label">%d plates, drawn from the series</span><hr class="hairline">
+    <span class="label">%s</span><hr class="hairline">
   </div>
 </section>
 
@@ -381,7 +485,7 @@ def study_page(slug, title, kind, note, files):
 <div class="onward shell">
   <span class="label">More work</span>
   <a href="projects.html">All projects &rarr;</a>
-</div>""" % (kind, title, note, len(plates), "\n".join(plates))
+</div>""" % (kind, title, note, count, "\n".join(plates))
 
     write(slug, page("%s — Maximilien Bozon" % title, note, body,
                      "projects.html", files[0] if files else None))
@@ -753,6 +857,39 @@ def prepare_images():
 
     print("  images: %d rebuilt, %d already current, capped at %dpx%s"
           % (made, current, MAX_EDGE, ", %d FAILED" % failed if failed else ""))
+
+    _prepare_thumbs(dest)
+
+
+def _prepare_thumbs(dest):
+    """The small copies behind the plate index, in docs/images/thumbs."""
+    out = os.path.join(dest, "thumbs")
+    os.makedirs(out, exist_ok=True)
+
+    stamp = os.path.join(out, ".thumb-edge")
+    previous = None
+    if os.path.exists(stamp):
+        with open(stamp, encoding="utf-8") as fh:
+            previous = fh.read().strip()
+    forced = previous != str(THUMB_EDGE)
+
+    made = current = 0
+    for fname in _photographs(dest):
+        source = os.path.join(dest, fname)
+        target = os.path.join(out, fname)
+        if (not forced and os.path.exists(target)
+                and os.path.getmtime(target) >= os.path.getmtime(source)):
+            current += 1
+            continue
+        _run(["sips", "-Z", str(THUMB_EDGE), source, "--out", target])
+        _run(["sips", "-s", "copyright", COPYRIGHT, target])
+        made += 1
+
+    with open(stamp, "w", encoding="utf-8") as fh:
+        fh.write(str(THUMB_EDGE) + "\n")
+
+    print("  thumbs: %d rebuilt, %d already current, %dpx"
+          % (made, current, THUMB_EDGE))
 
 
 def _photographs(folder):

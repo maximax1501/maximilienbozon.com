@@ -87,17 +87,12 @@ d99a877474a84de4bd25d31040be8dc6~mv2.jpg
 49e39ca5ae2341ddbe58967290d8c396~mv2.jpg
 4d8d0ab41ca54b3e886e2f1ab591cfe4~mv2.jpeg
 7a308abdaa984c35aeb5fa94849ed509~mv2.jpg
-3ffcbd4195644ee8b918b8b66dce4107~mv2.jpg
-3c733e73ecf57a9cacf266d939e662b8~mv2.jpg
-2d1682dfd609dd22dd2719ff2966f6aa~mv2.jpg""".split()
+3ffcbd4195644ee8b918b8b66dce4107~mv2.jpg""".split()
 
 
 # Only the plates measured so far. A plate with no entry simply builds
 # without a declared ratio, exactly as every Light plate did before.
-LIGHT_AR = {
-    "3c733e": (500, 333),
-    "2d1682": (500, 333),
-}
+LIGHT_AR = {}
 
 MONOCHROME = """99cfbdae96ab4805b8a1b6f457069e85~mv2.jpg
 de23d1d8a7c244ab8fb25778d23cd4ee~mv2.jpg
@@ -133,6 +128,7 @@ PORTRAIT = "326433a93bfc4ef4af64d7d95a637292~mv2.jpg"
 # one and shows it with its real plate number, so no photograph is ever
 # given a second identity. Adding a plate here does not move it.
 
+# Two of these are published here and nowhere else — see STUDY_AR below.
 ODONATA = """12ad2e67eee04925be2658b93826a003~mv2.jpg
 930f11fc3ed548dabadcc4941e7e1395~mv2.jpg
 62e5d0e853d34471600c995a4968fb88~mv2.jpg
@@ -142,3 +138,79 @@ cf44408f5a13f52975cf8ede0978d89f~mv2.jpg
 77feee5c82e32279f625e5030458ea93~mv2.jpg
 3c733e73ecf57a9cacf266d939e662b8~mv2.jpg
 2d1682dfd609dd22dd2719ff2966f6aa~mv2.jpg""".split()
+
+
+# A study normally borrows from a series, but it may also publish a plate
+# outright — one that belongs to the project and to no series. Such a plate
+# is numbered by the study itself, and its ratio is declared here rather
+# than in a series list, because there is no series list to declare it in.
+STUDY_AR = {
+    "3c733e": (500, 333),
+    "2d1682": (500, 333),
+}
+
+
+# ---------------------------------------------------------------- species
+#
+# Which animal group each plate belongs to, keyed by the same six-character
+# id prefix used by the aspect ratios and the captions — so reordering a
+# series never detaches a plate from its group.
+#
+# This is used for one thing only: grouping the small index at the top of a
+# series page. It never reorders the plates themselves, never renumbers
+# them, and never moves a photograph between series. A plate with no entry
+# here still builds; it simply sits under "Other" in a grouped index.
+#
+# Valid groups are the keys of GROUPS below.
+
+SPECIES = {
+    # --- Shadow
+    "852e5a": "birds", "459061": "birds", "580dc7": "birds",
+    "f4e43c": "birds", "3dcb05": "birds", "081dbd": "birds",
+    "c54e65": "birds", "e59089": "birds", "cd4b95": "birds",
+    "be86f0": "birds", "ab8d4d": "birds", "c24257": "birds",
+    "0a696f": "birds", "daee25": "birds", "c7688a": "birds",
+    "92d36c": "birds", "1bbef6": "birds", "eb3463": "birds",
+    "beb876": "mammals", "ba139c": "mammals", "028ca6": "mammals",
+    "91ac65": "birds", "13bff6": "birds", "92fcb0": "birds",
+    "543aa7": "birds",
+    "f42da9": "arthropods", "12ad2e": "arthropods", "930f11": "arthropods",
+    "316d19": "birds",
+    "400a7c": "reptiles", "5b81af": "reptiles", "4a67db": "reptiles",
+    "61b2da": "arthropods", "301100": "arthropods", "e77286": "arthropods",
+    "350a87": "birds",
+    "62e5d0": "arthropods", "66875f": "arthropods", "cf4440": "arthropods",
+    "6dc23a": "arthropods", "77feee": "arthropods",
+
+    # --- Light
+    "c1858d": "birds", "d1a879": "birds", "b89b32": "birds",
+    "9ea739": "birds", "9de324": "birds", "6ca743": "birds",
+    "209c30": "birds", "5b39c5": "birds", "e10baa": "birds",
+    "339f8d": "birds", "ee5daf": "birds", "9b55e5": "birds",
+    "ba1586": "birds", "3c7d73": "birds", "27cfa3": "birds",
+    "719e3e": "birds", "d9c92a": "birds", "29c0f4": "birds",
+    "d2c9f3": "birds", "d99a87": "birds", "49e39c": "birds",
+    "4d8d0a": "birds",
+    "7a308a": "reptiles",
+    "3ffcbd": "mammals",
+
+    # --- Monochrome
+    "99cfbd": "birds", "de23d1": "birds", "f0927e": "birds",
+    "570b5f": "birds", "608160": "birds", "40b974": "birds",
+    "3fdda2": "birds", "27ca5c": "birds", "ce54af": "birds",
+    "564393": "birds", "e113e7": "birds", "02194d": "birds",
+    "4ae161": "birds", "f88b8f": "birds",
+    "ee14c1": "mammals",
+    "01432a": "other",   # a bare branch — no animal at all
+}
+
+# The order groups appear in, and what they are called on the page. A group
+# may gather more than one key: mammals and reptiles are each too few to
+# stand alone, and a heading over three pictures is not a classification.
+# Split them back out by giving each its own line once there are enough.
+GROUPS = [
+    ("birds", "Birds"),
+    ("arthropods", "Arthropods"),
+    (("mammals", "reptiles"), "Mammals & reptiles"),
+    ("other", "Other"),
+]

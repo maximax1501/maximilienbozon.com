@@ -143,10 +143,6 @@ LIGHT = {
                "A caiman seen from directly above, symmetrical to the millimetre."),
     "3ffcbd": ("Antlers in Bracken",
                "Fog, dead bracken and two antler tips: the only evidence that a stag is there at all."),
-    "3c733e": ("Among the Bracken",
-               "Dead bracken fills the frame in every direction, and the dragonfly is the one thing holding still."),
-    "2d1682": ("Behind Her Veil",
-               "Seen against open sky, the wing reads as red lace laid over the body it hides."),
 }
 
 MONOCHROME = {
@@ -182,4 +178,14 @@ MONOCHROME = {
                "Seen from behind, the stag turns its head and the antlers resolve into a bare diagram."),
     "01432a": ("Bare Branch",
                "No animal at all — a single branch, kept for the way it repeats the shape of antlers."),
+}
+
+
+# Plates a study publishes itself, belonging to no series. Same shape, same
+# six-character keys — they simply have no series list to sit in.
+STUDY = {
+    "3c733e": ("Among the Bracken",
+               "Dead bracken fills the frame in every direction, and the dragonfly is the one thing holding still."),
+    "2d1682": ("Behind Her Veil",
+               "Seen against open sky, the wing reads as red lace laid over the body it hides."),
 }

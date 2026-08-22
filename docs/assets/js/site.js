@@ -146,6 +146,79 @@
     }
   );
 
+  /* --- arriving on a link straight to a plate ------------------------- */
+  /* Every plate is published with a measured ratio, but the block above
+     replaces it with the image's real one as each photograph arrives, so
+     the column keeps changing height for a second or two after load. A
+     link to plate XXX would land wherever the page happened to be at that
+     instant. So the scroll is re-asserted every frame until the target
+     stops moving — or until the visitor takes over, which always wins.
+
+     This is for links from elsewhere: the study pages point back here, and
+     so does anyone who saved the address of a plate. The index at the top
+     of the page no longer scrolls at all — it opens the picture. */
+  if (document.querySelector(".plates")) {
+    var frame = 0, release = null;
+
+    function stop() {
+      if (frame) { window.cancelAnimationFrame(frame); frame = 0; }
+      if (release) { release(); release = null; }
+    }
+
+    function hold(target) {
+      stop();
+
+      // Smooth scrolling is right for a reading page and wrong for this:
+      // the animation would restart from a new place on every reflow.
+      var was = root.style.scrollBehavior;
+      root.style.scrollBehavior = "auto";
+
+      var deadline = Date.now() + 1800;
+      var previous = -1, steady = 0;
+      var taken = false;
+      function surrender() { taken = true; }
+
+      window.addEventListener("wheel", surrender, { passive: true });
+      window.addEventListener("touchstart", surrender, { passive: true });
+      window.addEventListener("keydown", surrender);
+
+      release = function () {
+        root.style.scrollBehavior = was;
+        window.removeEventListener("wheel", surrender);
+        window.removeEventListener("touchstart", surrender);
+        window.removeEventListener("keydown", surrender);
+      };
+
+      (function tick() {
+        frame = 0;
+        if (taken) { stop(); return; }
+
+        var margin = parseFloat(
+          window.getComputedStyle(target).scrollMarginTop) || 0;
+        var top = Math.max(
+          0, target.getBoundingClientRect().top + window.pageYOffset - margin);
+
+        window.scrollTo(0, top);
+        steady = Math.abs(top - previous) < 1 ? steady + 1 : 0;
+        previous = top;
+
+        // Six still frames means the images above have finished arriving.
+        if (steady < 6 && Date.now() < deadline) {
+          frame = window.requestAnimationFrame(tick);
+        } else {
+          stop();
+        }
+      })();
+    }
+
+    if (window.location.hash) {
+      var landing = document.querySelector(window.location.hash);
+      if (landing && landing.classList.contains("plate")) {
+        window.addEventListener("load", function () { hold(landing); });
+      }
+    }
+  }
+
   /* --- open a plate full screen --------------------------------------- */
   /* The expand control is a plain link to the full-size file, so it still
      works with none of this. Here it becomes a viewer instead. */
@@ -167,6 +240,26 @@
         open(openable.indexOf(fig));
       });
     });
+
+    /* The index at the top opens a plate outright rather than walking the
+       visitor down to it. Choosing a thumbnail is already an act of
+       choosing a picture; sending them scrolling to find it again would be
+       asking them to choose it twice. Closing returns them to the
+       thumbnail they came from, so the index keeps its place. */
+    Array.prototype.forEach.call(
+      document.querySelectorAll(".pindex__item"),
+      function (link) {
+        var fig = document.querySelector(link.getAttribute("href"));
+        var i = openable.indexOf(fig);
+        if (i < 0) return;                    // let the plain link do its job
+        link.addEventListener("click", function (e) {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+          e.preventDefault();
+          opener = link;
+          open(i);
+        });
+      }
+    );
 
     function build() {
       box = document.createElement("div");
