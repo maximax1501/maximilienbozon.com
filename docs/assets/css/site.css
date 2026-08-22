@@ -541,19 +541,22 @@ html.overture-armed { overflow: hidden; }
    --ar is the photograph's own width/height, set inline. The svh term
    keeps a tall portrait from running past a screen height; nothing is
    ever cropped, the frame just narrows to suit. */
-.plate { --cap: calc(84vh * var(--ar, 1.5)); --cap: calc(84svh * var(--ar, 1.5)); }
+.plate { --cap: calc(92vh * var(--ar, 1.5)); --cap: calc(92svh * var(--ar, 1.5)); }
 
 /* The rhythm still steps down from full to small, but the bottom of the
    ladder was too low: a plate at 38rem read as a thumbnail beside its own
    caption. The range is now compressed upward, so every plate is worth
    stopping on and the variety comes as much from where a plate sits in the
-   column as from how wide it is. */
+   column as from how wide it is. Raised again for wide screens: on a
+   1900px display the old ladder left a mid plate covering barely half the
+   width, which read as small however large the file behind it was. The
+   shell (1500px) is still the outer limit. */
 .plate--full  { width: min(100%, var(--cap)); justify-self: center; }
-.plate--wide  { width: min(100%, 76rem, var(--cap)); justify-self: center; }
-.plate--mid   { width: min(100%, 66rem, var(--cap)); }
-.plate--small { width: min(100%, 54rem, var(--cap)); justify-self: center; }
-.plate--right { width: min(100%, 60rem, var(--cap)); justify-self: end; }
-.plate--left  { width: min(100%, 60rem, var(--cap)); justify-self: start; }
+.plate--wide  { width: min(100%, 88rem, var(--cap)); justify-self: center; }
+.plate--mid   { width: min(100%, 78rem, var(--cap)); }
+.plate--small { width: min(100%, 64rem, var(--cap)); justify-self: center; }
+.plate--right { width: min(100%, 70rem, var(--cap)); justify-self: end; }
+.plate--left  { width: min(100%, 70rem, var(--cap)); justify-self: start; }
 
 /* ---------- page header for inner pages ---------- */
 
