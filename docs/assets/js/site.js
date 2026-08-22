@@ -155,6 +155,7 @@
   if (openable.length) {
     var box = null, boxImg, boxIndex, boxTitle, boxBrief, boxCount, boxPrev, boxNext;
     var at = -1, opener = null;
+    var loupe, loupeBtn;
 
     openable.forEach(function (fig) {
       var link = fig.querySelector("[data-expand]");
@@ -177,10 +178,16 @@
         '<button class="lightbox__close" type="button" aria-label="Close">✕</button>' +
         '<button class="lightbox__nav lightbox__nav--prev" type="button" aria-label="Previous plate">←</button>' +
         '<button class="lightbox__nav lightbox__nav--next" type="button" aria-label="Next plate">→</button>' +
-        '<div class="lightbox__stage"><img class="lightbox__img" alt=""></div>' +
+        '<div class="lightbox__stage">' +
+          '<img class="lightbox__img" alt="">' +
+          '<div class="lightbox__loupe" aria-hidden="true"></div>' +
+        "</div>" +
         '<div class="lightbox__bar">' +
           '<p class="lightbox__index"></p>' +
-          '<p class="lightbox__count"></p>' +
+          '<div class="lightbox__meta">' +
+            '<p class="lightbox__count"></p>' +
+            '<button class="lightbox__loupe-btn" type="button" aria-pressed="true">Loupe</button>' +
+          "</div>" +
           '<p class="lightbox__title"></p>' +
           '<p class="lightbox__brief"></p>' +
         "</div>";
@@ -193,6 +200,9 @@
       boxCount = box.querySelector(".lightbox__count");
       boxPrev = box.querySelector(".lightbox__nav--prev");
       boxNext = box.querySelector(".lightbox__nav--next");
+      loupe = box.querySelector(".lightbox__loupe");
+      loupeBtn = box.querySelector(".lightbox__loupe-btn");
+      wireLoupe();
 
       box.querySelector(".lightbox__close").addEventListener("click", close);
       boxPrev.addEventListener("click", function () { open(at - 1); });
@@ -204,6 +214,72 @@
       document.addEventListener("keydown", onBoxKey);
     }
 
+    /* A magnifier held over the plate.
+       `object-fit: contain` means the picture rarely fills its box, so the
+       drawn rectangle is worked out first and the pointer is ignored outside
+       it. The lens is a circle painted with the same file at a larger
+       background-size, offset so that whatever is under the cursor stays
+       under the cursor. Nothing is fetched that the viewer did not already
+       have — this only shows detail the served file already carries. */
+    var LOUPE_ON = true;
+    try {
+      LOUPE_ON = window.localStorage.getItem("mb-loupe") !== "off";
+    } catch (e) {}
+
+    var finePointer = !window.matchMedia ||
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+    function drawnRect() {
+      var r = boxImg.getBoundingClientRect();
+      var nw = boxImg.naturalWidth, nh = boxImg.naturalHeight;
+      if (!nw || !nh) return null;
+      var s = Math.min(r.width / nw, r.height / nh);
+      var w = nw * s, h = nh * s;
+      return { left: r.left + (r.width - w) / 2, top: r.top + (r.height - h) / 2,
+               width: w, height: h, natural: nw };
+    }
+
+    function hideLoupe() { box.classList.remove("is-loupe"); }
+
+    function moveLoupe(e) {
+      if (!LOUPE_ON || !finePointer || !box.classList.contains("is-ready")) {
+        return hideLoupe();
+      }
+      var d = drawnRect();
+      if (!d) return hideLoupe();
+
+      var x = e.clientX - d.left, y = e.clientY - d.top;
+      if (x < 0 || y < 0 || x > d.width || y > d.height) return hideLoupe();
+
+      // Enough to read past what the page itself shows, never so much that
+      // the file runs out of detail and goes soft. A wide lens wants a
+      // gentler magnification: it already covers far more of the picture.
+      var zoom = Math.min(2.4, Math.max(1.6, (d.natural / d.width) * 1.05));
+      var size = loupe.offsetWidth / 2;
+
+      loupe.style.backgroundSize = (d.width * zoom) + "px " + (d.height * zoom) + "px";
+      loupe.style.backgroundPosition = (size - x * zoom) + "px " + (size - y * zoom) + "px";
+      loupe.style.left = (e.clientX - size) + "px";
+      loupe.style.top = (e.clientY - size) + "px";
+      box.classList.add("is-loupe");
+    }
+
+    function setLoupe(on) {
+      LOUPE_ON = on;
+      loupeBtn.setAttribute("aria-pressed", on ? "true" : "false");
+      if (!on) hideLoupe();
+      try { window.localStorage.setItem("mb-loupe", on ? "on" : "off"); } catch (e) {}
+    }
+
+    function wireLoupe() {
+      loupeBtn.setAttribute("aria-pressed", LOUPE_ON ? "true" : "false");
+      if (!finePointer) { loupeBtn.hidden = true; return; }
+      var stage = box.querySelector(".lightbox__stage");
+      stage.addEventListener("pointermove", moveLoupe);
+      stage.addEventListener("pointerleave", hideLoupe);
+      loupeBtn.addEventListener("click", function () { setLoupe(!LOUPE_ON); });
+    }
+
     function open(i) {
       if (i < 0 || i >= openable.length) return;
       if (!box) { build(); }
@@ -212,6 +288,10 @@
       at = i;
 
       box.classList.remove("is-ready");
+      if (loupe) {
+        hideLoupe();
+        loupe.style.backgroundImage = 'url("' + fig.dataset.full + '")';
+      }
       boxImg.src = fig.dataset.full;
       boxImg.alt = fig.querySelector("img") ? fig.querySelector("img").alt : "";
       boxIndex.textContent = "Plate " + fig.dataset.plate + " · " + fig.dataset.series;
@@ -236,7 +316,7 @@
 
     function close() {
       if (!box || !box.classList.contains("is-open")) return;
-      box.classList.remove("is-open", "is-ready");
+      box.classList.remove("is-open", "is-ready", "is-loupe");
       root.classList.remove("lightbox-open");
       if (opener) { opener.focus(); opener = null; }
     }

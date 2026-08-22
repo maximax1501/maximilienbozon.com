@@ -72,7 +72,7 @@ NAV = [
     ("shadow.html", "Shadow"),
     ("light.html", "Light"),
     ("monochrome.html", "Monochrome"),
-    ("notice-it.html", "Notice it"),
+    ("projects.html", "Projects"),
     ("about.html", "About"),
     ("contact.html", "Contact"),
 ]
@@ -191,7 +191,15 @@ def esc(text):
     return html.escape(text, quote=True)
 
 
-def plate(fname, index, series, ratios=None, caps=None):
+def plate(fname, index, series, ratios=None, caps=None, numeral=None, home=None):
+    """One plate.
+
+    `index` sets the layout rhythm and, normally, the plate number. A study
+    passes `numeral` and `home` instead, so a photograph borrowed onto
+    another page still shows the number and series it was published under
+    and links back to it. A plate has exactly one identity wherever it
+    appears.
+    """
     ar_frame = ""
     ar_fig = ""
     cls = RHYTHM[index % len(RHYTHM)]
@@ -204,7 +212,7 @@ def plate(fname, index, series, ratios=None, caps=None):
         if h > w:  # tall plates get the narrow rhythm, never a full-bleed slot
             cls = PORTRAIT_RHYTHM[index % len(PORTRAIT_RHYTHM)]
 
-    numeral = roman(index + 1)
+    numeral = numeral or roman(index + 1)
     title, brief = (caps or {}).get(fname[:6], ("", ""))
 
     # The caption doubles as the alt text — it is the best description of the
@@ -220,7 +228,12 @@ def plate(fname, index, series, ratios=None, caps=None):
         note = ""
         expand_label = "Expand plate %s" % numeral
 
-    return """  <figure class="plate plate--%(cls)s reveal"%(ar_fig)s
+    # Anchored on the id prefix rather than the number, so a link into a
+    # plate survives the series being reordered.
+    mark = ('<a class="plate__series" href="%s">%s &rarr;</a>' % (home, series)
+            if home else '<span class="plate__series">%s</span>' % series)
+
+    return """  <figure class="plate plate--%(cls)s reveal" id="plate-%(anchor)s"%(ar_fig)s
     data-title="%(title)s" data-brief="%(brief)s" data-plate="%(numeral)s"
     data-series="%(series)s" data-full="%(full)s">
     <div class="plate__frame"%(ar_frame)s>
@@ -235,14 +248,15 @@ def plate(fname, index, series, ratios=None, caps=None):
       <p class="plate__index">Plate %(numeral)s</p>
       %(heading)s
       %(note)s
-      <span class="plate__series">%(series)s</span>
+      %(mark)s
     </figcaption>
   </figure>""" % {
         "cls": cls, "ar_fig": ar_fig, "ar_frame": ar_frame,
         "src": src(fname), "srcset": srcset(fname), "full": src(fname, 2400),
         "alt": esc(alt), "label": esc(expand_label), "numeral": numeral,
         "series": series, "title": esc(title), "brief": esc(brief),
-        "heading": heading, "note": note,
+        "heading": heading, "note": note, "mark": mark,
+        "anchor": fname[:6],
     }
 
 
@@ -250,10 +264,12 @@ def gallery_page(slug, title, note, files, ratios=None, nxt=None, caps=None):
     plates = "\n".join(plate(f, i, title, ratios, caps) for i, f in enumerate(files))
     onward = ""
     if nxt:
+        label = "Next series" if nxt[0].endswith(tuple(
+            s[0] for s in SERIES)) else "Beyond the series"
         onward = """<div class="onward shell">
-  <span class="label">Next series</span>
+  <span class="label">%s</span>
   <a href="%s">%s &rarr;</a>
-</div>""" % (nxt[0], nxt[1])
+</div>""" % (label, nxt[0], nxt[1])
 
     body = """<section class="pagehead shell">
   <p class="label">Series</p>
@@ -286,17 +302,142 @@ SERIES = [
      photos.SHADOW_AR, captions.SHADOW),
     ("light.html", "Light", photos.LIGHT,
      "The same subjects turned toward the source: form described by illumination rather than concealed by it.",
-     None, captions.LIGHT),
+     photos.LIGHT_AR, captions.LIGHT),
     ("monochrome.html", "Monochrome", photos.MONOCHROME,
      "Colour removed, leaving line, texture and anatomy to carry the picture on their own.",
      None, captions.MONOCHROME),
 ]
 
 
+# The three series above are one axis: how the light is handled. Every
+# photograph sits at exactly one point on it, which is what keeps the
+# navigation legible.
+#
+# Projects are the second tier, and deliberately a different kind of thing.
+# A project can be an edition, a study, a commission — anything with its own
+# reason to exist. To add one, append an entry here and nothing else: the
+# index page, the home page band and the sitemap all read from this list.
+#
+#   slug   the page it builds
+#   title  what it is called
+#   kind   the small label above the title (Study, Limited edition, ...)
+#   note   one sentence, used on the index and in the page description
+#   cover  the photograph that stands for it
+#   plates a list of photographs to build a study page from, drawn from the
+#          series — or None, when the project brings its own page builder
+#   build  a function writing the page itself, for projects that are not
+#          simply a set of plates
+#
+PROJECTS = [
+    ("notice-it.html", "Notice it", "Limited edition",
+     "A hand-numbered edition of 100 pages of arthropod photography, made for "
+     "anyone curious enough to look at the creatures most people look away from.",
+     photos.BOOK[0], None, "build_book"),
+    ("dragonflies.html", "Dragonflies", "Study",
+     "Odonata: two pairs of wings held open in the dark, and the oldest flying "
+     "design still in the air.",
+     photos.ODONATA[0], photos.ODONATA, None),
+]
+
+
+def home_of(fname):
+    """Which series publishes this photograph, and as which plate.
+
+    Returns (slug, series title, numeral, ratios, captions) so a study can
+    borrow a plate without inventing a second number for it.
+    """
+    for slug, title, files, _note, ratios, caps in SERIES:
+        for i, f in enumerate(files):
+            if f[:6] == fname[:6]:
+                return slug, title, roman(i + 1), ratios, caps
+    return None
+
+
+def study_page(slug, title, kind, note, files):
+    """A project built from plates that already live in a series."""
+    plates = []
+    for i, fname in enumerate(files):
+        found = home_of(fname)
+        if not found:
+            print("  projects: %s is in no series — skipping" % fname[:6])
+            continue
+        home_slug, series, numeral, ratios, caps = found
+        plates.append(plate(fname, i, series, ratios, caps, numeral=numeral,
+                            home="%s#plate-%s" % (home_slug, fname[:6])))
+
+    body = """<section class="pagehead shell">
+  <p class="label">%s</p>
+  <h1 class="pagehead__title">%s</h1>
+  <p class="pagehead__note">%s</p>
+  <div class="pagehead__rule">
+    <span class="label">%d plates, drawn from the series</span><hr class="hairline">
+  </div>
+</section>
+
+<section class="plates shell">
+%s
+</section>
+
+<div class="onward shell">
+  <span class="label">More work</span>
+  <a href="projects.html">All projects &rarr;</a>
+</div>""" % (kind, title, note, len(plates), "\n".join(plates))
+
+    write(slug, page("%s — Maximilien Bozon" % title, note, body,
+                     "projects.html", files[0] if files else None))
+
+
+def project_cards():
+    """The project list, used on both the home page and the index."""
+    items = []
+    for i, (slug, title, kind, note, cover, _plates, _fn) in enumerate(PROJECTS):
+        items.append("""  <a class="series__item reveal" href="%s">
+    <span class="series__numeral">%s</span>
+    <div>
+      <p class="label">%s</p>
+      <h3 class="series__title">%s</h3>
+      <p class="series__note">%s</p>
+    </div>
+    <figure class="series__figure">
+      <img src="%s" alt="From %s" loading="lazy" decoding="async">
+    </figure>
+  </a>""" % (slug, roman(i + 1), kind, title, note, src(cover, 1200), title))
+    return "\n".join(items)
+
+
+def build_projects():
+    body = """<section class="pagehead shell">
+  <p class="label">Beyond the series</p>
+  <h1 class="pagehead__title">Projects</h1>
+  <p class="pagehead__note">Editions, studies and bodies of work that follow a
+  subject rather than a quality of light.</p>
+  <div class="pagehead__rule">
+    <span class="label">%d projects</span><hr class="hairline">
+  </div>
+</section>
+
+<section class="band shell" style="padding-top:0">
+  <div class="series series--projects">
+%s
+  </div>
+</section>
+
+<div class="onward shell">
+  <span class="label">Prints, commissions, enquiries</span>
+  <a href="contact.html">Get in touch &rarr;</a>
+</div>""" % (len(PROJECTS), project_cards())
+
+    write("projects.html", page(
+        "Projects — Maximilien Bozon",
+        "Editions, studies and bodies of work by Maximilien Bozon, following a "
+        "subject rather than a quality of light.",
+        body, "projects.html", PROJECTS[0][4] if PROJECTS else None))
+
+
 def build_home():
-    hero = "3dcb05572dac4efda06ef74255ed9952~mv2.jpg"
+    hero = "12ad2e67eee04925be2658b93826a003~mv2.jpg"
     covers = {
-        "Shadow": "852e5aa39f844d789892762e84d2b69f~mv2.jpg",
+        "Shadow": "daee257aaeb34d86b1129567e57f718b~mv2.jpg",
         "Light": "c1858d4ef6b741ba9b716e1027a61439~mv2.jpg",
         "Monochrome": "99cfbdae96ab4805b8a1b6f457069e85~mv2.jpg",
     }
@@ -341,7 +482,7 @@ def build_home():
 </section>
 
 <section class="band shell" style="padding-top:0">
-  <div class="pagehead__rule reveal" style="margin-bottom:1rem">
+  <div class="pagehead__rule pagehead__rule--section reveal" style="margin-bottom:1rem">
     <span class="label">The work</span><hr class="hairline">
   </div>
   <div class="series">
@@ -349,17 +490,12 @@ def build_home():
   </div>
 </section>
 
-<section class="band shell">
-  <div class="split reveal">
-    <div>
-      <p class="label">The book</p>
-      <h2 class="pagehead__title" style="font-size:var(--t-xl)">Notice it</h2>
-      <p>A hand-numbered edition of 100 pages of arthropod photography, made for anyone curious enough to look at the creatures most people look away from.</p>
-      <p><a class="btn" href="notice-it.html">See the edition</a></p>
-    </div>
-    <figure class="series__figure" style="margin:0">
-      <img src="%(book)s" alt="From the book Notice it" loading="lazy" decoding="async">
-    </figure>
+<section class="band shell" id="projects">
+  <div class="pagehead__rule pagehead__rule--section reveal" style="margin-bottom:1rem">
+    <span class="label">The projects</span><hr class="hairline">
+  </div>
+  <div class="series series--projects">
+%(projects)s
   </div>
 </section>
 
@@ -367,7 +503,7 @@ def build_home():
   <span class="label">Prints, commissions, enquiries</span>
   <a href="contact.html">Get in touch &rarr;</a>
 </div>""" % {"hero": src(hero, 2400), "items": "\n".join(items),
-             "book": src(photos.BOOK[0], 1200)}
+             "projects": project_cards()}
 
     write("index.html", page(
         "Maximilien Bozon — Wildlife photography",
@@ -443,7 +579,7 @@ def build_book():
     write("notice-it.html", page(
         "Notice it — a limited edition by Maximilien Bozon",
         "A hand-numbered limited edition of 100 pages of arthropod photography, with clamshell box, fine art paper and certificate of authenticity.",
-        body, "notice-it.html", photos.BOOK[0]))
+        body, "projects.html", photos.BOOK[0]))
 
 
 def build_about():
@@ -535,8 +671,10 @@ def build_404():
 
 
 def build_extras():
-    pages = ["", "shadow.html", "light.html", "monochrome.html",
-             "notice-it.html", "about.html", "contact.html"]
+    pages = (["", "shadow.html", "light.html", "monochrome.html",
+              "projects.html"]
+             + [p[0] for p in PROJECTS]
+             + ["about.html", "contact.html"])
     urls = "\n".join(
         "  <url><loc>%s/%s</loc></url>" % (SITE_URL, p) for p in pages)
     write("sitemap.xml",
@@ -637,9 +775,15 @@ def main():
         if i + 1 < len(SERIES):
             nxt = (SERIES[i + 1][0], SERIES[i + 1][1])
         else:
-            nxt = ("notice-it.html", "Notice it")
+            nxt = ("projects.html", "Projects")
         gallery_page(slug, title, note, files, ratios, nxt, caps)
-    build_book()
+
+    build_projects()
+    for slug, title, kind, note, _cover, plates, fn in PROJECTS:
+        if plates:
+            study_page(slug, title, kind, note, plates)
+        else:
+            globals()[fn]()
     build_about()
     build_contact()
     build_404()

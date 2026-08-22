@@ -36,7 +36,12 @@ f42da967009549e9ab9f4c5e5e34bd1c~mv2.jpg
 61b2da15272c4560913cb25a8fef25cd~mv2.jpg
 3011004e52624a6db2aae43308d47f8d~mv2.jpg
 e7728622d3964635a9747604d883c254~mv2.jpg
-350a879d09464e02b95498494c2d4b08~mv2.jpeg""".split()
+350a879d09464e02b95498494c2d4b08~mv2.jpeg
+62e5d0e853d34471600c995a4968fb88~mv2.jpg
+66875f4271e1fcd3894ec54f84eee3e2~mv2.jpg
+cf44408f5a13f52975cf8ede0978d89f~mv2.jpg
+6dc23aaa057fdb7e6d630a6d38810634~mv2.jpg
+77feee5c82e32279f625e5030458ea93~mv2.jpg""".split()
 
 # Aspect ratios measured from the live site (w x h), keyed by the id prefix.
 SHADOW_AR = {
@@ -52,6 +57,11 @@ SHADOW_AR = {
     "930f11": (500, 294), "316d19": (500, 334), "400a7c": (499, 260),
     "5b81af": (500, 306), "4a67db": (500, 297), "61b2da": (500, 345),
     "301100": (350, 500), "e77286": (385, 500), "350a87": (500, 333),
+    "62e5d0": (500, 333),
+    "66875f": (500, 333),
+    "cf4440": (333, 500),
+    "6dc23a": (500, 287),
+    "77feee": (500, 345),
 }
 
 LIGHT = """c1858d4ef6b741ba9b716e1027a61439~mv2.jpg
@@ -77,7 +87,17 @@ d99a877474a84de4bd25d31040be8dc6~mv2.jpg
 49e39ca5ae2341ddbe58967290d8c396~mv2.jpg
 4d8d0ab41ca54b3e886e2f1ab591cfe4~mv2.jpeg
 7a308abdaa984c35aeb5fa94849ed509~mv2.jpg
-3ffcbd4195644ee8b918b8b66dce4107~mv2.jpg""".split()
+3ffcbd4195644ee8b918b8b66dce4107~mv2.jpg
+3c733e73ecf57a9cacf266d939e662b8~mv2.jpg
+2d1682dfd609dd22dd2719ff2966f6aa~mv2.jpg""".split()
+
+
+# Only the plates measured so far. A plate with no entry simply builds
+# without a declared ratio, exactly as every Light plate did before.
+LIGHT_AR = {
+    "3c733e": (500, 333),
+    "2d1682": (500, 333),
+}
 
 MONOCHROME = """99cfbdae96ab4805b8a1b6f457069e85~mv2.jpg
 de23d1d8a7c244ab8fb25778d23cd4ee~mv2.jpg
@@ -104,3 +124,21 @@ f1d1ad7a732347ec839f3e9de1549400~mv2.jpg
 c97b0e6c4e0843d5ac13bf238f009e1b~mv2.jpg""".split()
 
 PORTRAIT = "326433a93bfc4ef4af64d7d95a637292~mv2.jpg"
+
+
+# ---------------------------------------------------------------- studies
+#
+# A study is a project that draws on plates already published in a series.
+# List the plates by their filename; the build finds which series holds each
+# one and shows it with its real plate number, so no photograph is ever
+# given a second identity. Adding a plate here does not move it.
+
+ODONATA = """12ad2e67eee04925be2658b93826a003~mv2.jpg
+930f11fc3ed548dabadcc4941e7e1395~mv2.jpg
+62e5d0e853d34471600c995a4968fb88~mv2.jpg
+66875f4271e1fcd3894ec54f84eee3e2~mv2.jpg
+cf44408f5a13f52975cf8ede0978d89f~mv2.jpg
+6dc23aaa057fdb7e6d630a6d38810634~mv2.jpg
+77feee5c82e32279f625e5030458ea93~mv2.jpg
+3c733e73ecf57a9cacf266d939e662b8~mv2.jpg
+2d1682dfd609dd22dd2719ff2966f6aa~mv2.jpg""".split()

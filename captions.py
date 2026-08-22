@@ -82,6 +82,16 @@ SHADOW = {
                "Two longwing butterflies hang from the same dry stem, wings held open like plates."),
     "350a87": ("Inverted Sky",
                "A heron on the shoreline, photographed so that the reflected sky becomes the ground."),
+    "62e5d0": ("Glasswing",
+               "Wings held flat and open, their panes so clear the leaves behind them show straight through."),
+    "66875f": ("Through the Glass",
+               "Close enough that the wing becomes a window, the body behind it broken into coloured cells."),
+    "cf4440": ("The Blue Eye",
+               "A head turned in profile, the compound eye shading from rust to pale blue across its curve."),
+    "6dc23a": ("Blue Segments",
+               "Brown wings folded over a body banded in chalk blue, the animal the colour of the litter it rests on."),
+    "77feee": ("Low Sun",
+               "Late light comes through from behind, turning the wings amber and leaving the perch in shadow."),
 }
 
 LIGHT = {
@@ -133,6 +143,10 @@ LIGHT = {
                "A caiman seen from directly above, symmetrical to the millimetre."),
     "3ffcbd": ("Antlers in Bracken",
                "Fog, dead bracken and two antler tips: the only evidence that a stag is there at all."),
+    "3c733e": ("Among the Bracken",
+               "Dead bracken fills the frame in every direction, and the dragonfly is the one thing holding still."),
+    "2d1682": ("Behind Her Veil",
+               "Seen against open sky, the wing reads as red lace laid over the body it hides."),
 }
 
 MONOCHROME = {
