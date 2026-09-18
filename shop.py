@@ -22,11 +22,13 @@ CHECKOUT_ENDPOINT = "/api/checkout"
 # Set False to build the site with no ordering at all — the plates go back
 # to being just plates, and no order button is rendered anywhere.
 #
-# It is False because the published site has nowhere to send an order:
-# CHECKOUT_ENDPOINT is answered by checkout_server.py, and GitHub Pages
-# serves files and nothing else. Switch it on once that server is hosted
-# somewhere and re-run build.py.
-OPEN = False
+# It is True so the prices show on the published site. Be clear about what
+# that means today: CHECKOUT_ENDPOINT is answered by checkout_server.py,
+# GitHub Pages serves files and nothing else, so the panel opens and prices
+# correctly but "Continue to payment" cannot reach anything. The panel
+# catches that and offers ENQUIRY_EMAIL instead, which is a soft landing
+# rather than a working till. Host checkout_server.py to close the gap.
+OPEN = True
 
 
 # ---------------------------------------------------------------- formats
@@ -44,14 +46,46 @@ OPEN = False
 #   plexi  price face-mounted on plexiglass
 #   frame  supplement for the caisse americaine at this size
 #
-# >>> THE NUMBERS BELOW ARE PLACEHOLDERS. Replace them before the shop
-# >>> is ever reachable by a stranger. They are here only so the panel has
-# >>> something to show while you look at it.
+# The numbers are WhiteWall's list price for the same piece, multiplied by
+# 2.5 and rounded to the nearest five euros. Read from whitewall.com/fr on
+# 18 September 2026, prices TTC, carriage excluded.
+#
+# A format here is a longest edge, but WhiteWall sells rectangles, so each
+# row is priced against the smallest standard 3:2 size whose long side
+# reaches this edge — 45x30, 60x40, 90x60, 105x70. The catalogue entries
+# behind each column:
+#
+#   paper  Impression Fine Art, Hahnemuehle Photo Rag
+#          24,95 / 33,95 / 68,95 / 91,95
+#   plexi  Tirage photo sous Plexi — Fuji Crystal Archive brillant sous
+#          verre acrylique 2 mm, 103,95 / 141,95 / 271,95 / 352,95
+#   frame  le meme tirage en cadre Bale 15 mm a joint d'ombre,
+#          185,95 / 225,95 / 370,95 / 463,95, moins le prix plexi
+#          ci-dessus — soit 82 / 84 / 99 / 111 pour l'encadrement seul.
+#          Ce supplement est le meme sur l'impression pigmentaire Fine
+#          Art sous plexi, qui coute bien plus cher au tirage : le cadre
+#          se facture a part et ne depend pas du tirage qu'il entoure.
+#
+# Two things the 3:2 reference does not cover, both worth knowing before
+# you quote a plate that is not a 3:2:
+#
+#   A square print is the same long edge but half again the area, and
+#   WhiteWall charges for area. A 100x100 under plexi in its frame is
+#   538,95 against the 463,95 of the 105x70 this row is priced on. The
+#   2.5 absorbs it — you would still be near 2.1 — but it is not free.
+#
+#   WhiteWall does not mount fine art paper in a shadow-gap frame at all.
+#   Paper is offered with conventional wood mouldings and a passe-partout,
+#   which costs far more than the plexi framing above: 156 at 60x40, 201
+#   at 90x60, and nothing beyond 90x60. So the frame column below is
+#   honest for plexi and too cheap for paper, and FRAMINGS still offers
+#   the caisse on both. Either drop "paper" from its supports list or
+#   find the framing somewhere other than WhiteWall.
 FORMATS = [
-    {"id": "40",  "edge": 40,  "paper": 180, "plexi": 260, "frame": 120},
-    {"id": "60",  "edge": 60,  "paper": 280, "plexi": 390, "frame": 170},
-    {"id": "80",  "edge": 80,  "paper": 420, "plexi": 560, "frame": 230},
-    {"id": "100", "edge": 100, "paper": 590, "plexi": 780, "frame": 300},
+    {"id": "40",  "edge": 40,  "paper": 60,  "plexi": 260, "frame": 205},
+    {"id": "60",  "edge": 60,  "paper": 85,  "plexi": 355, "frame": 210},
+    {"id": "80",  "edge": 80,  "paper": 170, "plexi": 680, "frame": 250},
+    {"id": "100", "edge": 100, "paper": 230, "plexi": 880, "frame": 280},
 ]
 
 # ---------------------------------------------------------------- supports
@@ -89,17 +123,26 @@ EDITION = "Printed to order in Paris. Signed on the reverse."
 # repeated on the confirmation page.
 LEAD_TIME = "Allow two to three weeks."
 
-# Shipping is collected by Stripe at checkout, so the price above is the
-# print alone. Each entry is a country list and a price; the first entry is
-# the default shown in the panel.
+# Carriage, and the one combination that pays for it.
+#
+# Everything the shop sells carries its transport in the price already —
+# except the bare paper print, which is the only thing cheap enough that a
+# parcel would eat the margin. A 40 cm paper print sells for 60 against
+# 24,95 of printing; absorbing 15 of carriage would leave 20, a third of
+# what every other row holds. So that one combination adds the carriage at
+# checkout and the rest do not.
+#
+# The band also decides where a parcel may go: checkout_server.py builds
+# its allowed countries from this list, so France alone is what Stripe
+# will accept an address in. To open another country, add its band here.
 SHIPPING = [
     {"id": "fr", "label": "France", "price": 15, "countries": ["FR"]},
-    {"id": "eu", "label": "Europe", "price": 25,
-     "countries": ["BE", "DE", "ES", "IT", "LU", "NL", "PT", "AT", "IE", "DK", "SE", "FI", "PL", "CZ"]},
-    {"id": "uk", "label": "United Kingdom", "price": 25, "countries": ["GB"]},
-    {"id": "world", "label": "Rest of the world", "price": 45,
-     "countries": ["US", "CA", "CH", "NO", "AU", "NZ", "JP"]},
 ]
+
+# The combinations that pay the carriage above rather than having it in the
+# price already, as (support, framing) pairs. Anything not listed here is
+# delivered included.
+CARRIAGE_PAID_BY = [("paper", "none")]
 
 
 # ------------------------------------------------------------------ logic
@@ -141,6 +184,25 @@ def price(fid, sid, gid):
     if frm["id"] != "none":
         total += fmt.get("frame", 0)
     return total
+
+
+def carriage(sid, gid, band=None):
+    """What this combination adds for transport, in euros, on top of what
+    price() returns. Zero for everything but the bare paper print.
+
+    The panel shows this and checkout_server.py charges it, both from
+    here, so the line the buyer reads and the line Stripe bills can never
+    drift apart."""
+    if (sid, gid) not in CARRIAGE_PAID_BY:
+        return 0
+    band = band or (SHIPPING[0] if SHIPPING else None)
+    return band["price"] if band else 0
+
+
+def carriage_included(sid, gid):
+    """True when the price already covers the parcel. What the panel says
+    under the total is written from this."""
+    return (sid, gid) not in CARRIAGE_PAID_BY
 
 
 def cents(euros):
@@ -195,4 +257,10 @@ def config():
                       "supports": g["supports"]} for g in FRAMINGS],
         "shipping": [{"id": s["id"], "label": s["label"], "price": s["price"]}
                      for s in SHIPPING],
+        # What each combination adds for transport, so the panel can say
+        # "shipping included" or name the sum without knowing the rule.
+        "carriage": {
+            s["id"]: {g["id"]: carriage(s["id"], g["id"]) for g in FRAMINGS}
+            for s in SUPPORTS
+        },
     }

@@ -506,7 +506,7 @@
         '<p class="order__plate"></p>' +
         '<h2 class="order__title"></h2>' +
         '<form class="order__form">' +
-          group("format", "Size", "") +
+          group("format", "Size of the long side", "") +
           group("support", "Print", "") +
           group("framing", "Framing", "") +
           '<div class="order__total">' +
@@ -602,8 +602,23 @@
       var ok = total !== null;
       elSum.textContent = ok ? money(total) : "—";
       elBuy.disabled = !ok;
-      elFine.textContent = [shop.edition, shop.leadTime, "Shipping calculated at checkout."]
-        .filter(Boolean).join(" ");
+
+      /* Most of what the shop sells carries its transport in the price.
+         The bare paper print does not, and the buyer is told the sum here
+         rather than meeting it at the till. The rule lives in shop.py and
+         arrives as data, so this only has to read it. */
+      var due = carriageOf(state.support, state.framing);
+      elFine.textContent = [
+        shop.edition,
+        shop.leadTime,
+        due ? "Shipping " + money(due) + ", added at checkout."
+            : "Shipping included."
+      ].filter(Boolean).join(" ");
+    }
+
+    function carriageOf(sid, gid) {
+      var c = shop.carriage && shop.carriage[sid];
+      return (c && c[gid]) || 0;
     }
 
     function priceOf(fid, sid, gid) {

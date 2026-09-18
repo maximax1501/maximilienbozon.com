@@ -119,17 +119,24 @@ def stripe_session(params):
         return json.loads(resp.read().decode("utf-8"))
 
 
-def shipping_options():
-    """Every shipping band from shop.py, offered at checkout. Stripe shows
-    them as a choice and adds the one the buyer picks to the total."""
+def shipping_options(sid, gid):
+    """Every shipping band from shop.py, priced for this order.
+
+    Most of what the shop sells carries its transport in the print price,
+    so the band is offered at zero and Stripe shows the buyer the word
+    rather than a sum. The bare paper print pays the band outright. Which
+    is which is shop.carriage's answer, not this file's, so the panel and
+    the bill are reading the same rule."""
     out = []
     for band in shop.SHIPPING[:5]:          # Stripe accepts at most five
+        due = shop.carriage(sid, gid, band)
         out.append({
             "shipping_rate_data": {
                 "type": "fixed_amount",
-                "display_name": band["label"],
+                "display_name": band["label"] if due else
+                                "%s — shipping included" % band["label"],
                 "fixed_amount": {
-                    "amount": shop.cents(band["price"]),
+                    "amount": shop.cents(due),
                     "currency": shop.CURRENCY,
                 },
             }
@@ -225,7 +232,7 @@ class Handler(SimpleHTTPRequestHandler):
             "shipping_address_collection": {
                 "allowed_countries": allowed_countries(),
             },
-            "shipping_options": shipping_options(),
+            "shipping_options": shipping_options(sid, gid),
             "phone_number_collection": {"enabled": "false"},
             # Everything needed to make the print, on the payment itself,
             # so an order can be filled from the Stripe dashboard alone.
