@@ -39,8 +39,28 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.join(HERE, "docs")
 
 PORT = int(os.environ.get("PORT", "8000"))
+# Loopback locally, every interface in a container. Railway routes to the
+# process from outside the machine, so a server listening only on 127.0.0.1
+# there is a server nobody can reach.
+HOST = os.environ.get("HOST", "127.0.0.1")
 STRIPE_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_API = "https://api.stripe.com/v1/checkout/sessions"
+
+# Where the SITE lives, when that is not where this process lives.
+#
+# Locally the two are the same thing and this stays empty: one process
+# serves docs/ and answers /api/checkout, and the origin off the request is
+# the right answer for everything. In production they are split — the
+# photographs are on GitHub Pages at maximilienbozon.com, this is on
+# Railway — and the request origin is then this API host, which is the one
+# host the buyer must never be sent back to. Stripe would return them to
+# an API box with no order-complete page on it.
+#
+# So: set this to the site, and every address handed to Stripe or allowed
+# through CORS is built from it rather than from the request.
+#
+#     SITE_ORIGIN=https://maximilienbozon.com
+SITE_ORIGIN = os.environ.get("SITE_ORIGIN", "").rstrip("/")
 
 # Stripe will only show a picture in its checkout if it can fetch the file
 # itself, which it cannot do from your laptop. Set this to the live site
@@ -48,7 +68,8 @@ STRIPE_API = "https://api.stripe.com/v1/checkout/sessions"
 # on the payment page; leave it unset locally and they simply do not.
 #
 #     export PUBLIC_IMAGE_BASE=https://maximilienbozon.com
-PUBLIC_IMAGE_BASE = os.environ.get("PUBLIC_IMAGE_BASE", "").rstrip("/")
+PUBLIC_IMAGE_BASE = os.environ.get("PUBLIC_IMAGE_BASE", "").rstrip("/") \
+    or SITE_ORIGIN
 
 
 # ------------------------------------------------------------- the plates
@@ -207,7 +228,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(503, {
                 "error": "That print has no price set yet."})
 
-        origin = self._origin()
+        site = self._site()
         product = {
             "name": "%s — %s, plate %s" % (plate["title"], plate["series"],
                                            _roman(plate["plate"])),
@@ -218,8 +239,8 @@ class Handler(SimpleHTTPRequestHandler):
 
         params = {
             "mode": "payment",
-            "success_url": origin + "/order-complete.html?session_id={CHECKOUT_SESSION_ID}",
-            "cancel_url": self._cancel(body, origin),
+            "success_url": site + "/order-complete.html?session_id={CHECKOUT_SESSION_ID}",
+            "cancel_url": self._cancel(body, site),
             "client_reference_id": photo,
             "line_items": [{
                 "quantity": 1,
@@ -266,19 +287,63 @@ class Handler(SimpleHTTPRequestHandler):
         scheme = "https" if self.headers.get("X-Forwarded-Proto") == "https" else "http"
         return "%s://%s" % (scheme, host)
 
-    def _cancel(self, body, origin):
+    def _site(self):
+        """Where the buyer came from and must be returned to. SITE_ORIGIN
+        when the site is hosted apart from this process, and the request's
+        own origin when it is not."""
+        return SITE_ORIGIN or self._origin()
+
+    def _allow_origin(self):
+        """The one origin permitted to call this endpoint from a browser.
+
+        Deliberately a single exact origin rather than '*': this endpoint
+        creates priced Stripe sessions, and there is no reason for any page
+        but the shop to be able to open one. Empty when SITE_ORIGIN is
+        unset, which is the same-origin local case where no CORS header
+        should be sent at all."""
+        return SITE_ORIGIN
+
+    def _cors(self):
+        allow = self._allow_origin()
+        if not allow:
+            return
+        if self.headers.get("Origin") != allow:
+            return
+        self.send_header("Access-Control-Allow-Origin", allow)
+        self.send_header("Vary", "Origin")
+
+    def do_OPTIONS(self):
+        """The preflight the browser sends before the real POST, because
+        the order is JSON and therefore never a 'simple' request."""
+        if self.path.rstrip("/") != "/api/checkout":
+            return self.send_error(404, "No such endpoint")
+        self.send_response(204)
+        self._cors()
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Max-Age", "86400")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _cancel(self, body, site):
         """Send a buyer who backs out to the photograph they were looking
-        at, not to the front door."""
+        at, not to the front door.
+
+        The address is checked against the site before it is used. It
+        arrives in the request body, so an unchecked returnTo would let
+        anyone hand Stripe an address on a host of their choosing and have
+        the shop's own checkout page send a buyer there."""
         want = str(body.get("returnTo", ""))
         parsed = urllib.parse.urlparse(want)
         if parsed.scheme in ("http", "https") and \
-                "%s://%s" % (parsed.scheme, parsed.netloc) == origin:
+                "%s://%s" % (parsed.scheme, parsed.netloc) == site:
             return want
-        return origin + "/"
+        return site + "/"
 
     def _json(self, code, payload):
         blob = json.dumps(payload).encode("utf-8")
         self.send_response(code)
+        self._cors()
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(blob)))
         self.send_header("Cache-Control", "no-store")
@@ -301,7 +366,7 @@ def _roman(n):
 
 
 def main():
-    if not os.path.isdir(DOCS):
+    if not os.path.isdir(DOCS) and not SITE_ORIGIN:
         sys.exit("docs/ is missing — run python3 build.py first.")
 
     mode = "not connected"
@@ -312,15 +377,16 @@ def main():
     elif STRIPE_KEY:
         mode = "key present but unrecognised"
 
-    print("maximilienbozon.com — http://localhost:%d" % PORT)
+    print("maximilienbozon.com — http://%s:%d" % (HOST, PORT))
     print("Stripe: %s" % mode)
+    print("Site:   %s" % (SITE_ORIGIN or "same origin as this process"))
     print("Catalogue: %d photographs, %d formats" % (len(CATALOGUE), len(shop.FORMATS)))
     if not STRIPE_KEY:
         print("\n  Set a key first:  export STRIPE_SECRET_KEY=sk_test_...")
     print("\nCtrl-C to stop.\n")
 
     try:
-        ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+        ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
     except KeyboardInterrupt:
         print("\nstopped.")
 

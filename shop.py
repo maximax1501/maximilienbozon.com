@@ -8,6 +8,8 @@
 # Prices are in euros, as you would write them on a price list. They are
 # converted to cents once, in cents(), so nobody has to think in cents.
 
+import os
+
 CURRENCY = "eur"
 SYMBOL = "€"
 
@@ -15,19 +17,33 @@ SYMBOL = "€"
 # would rather ask than buy.
 ENQUIRY_EMAIL = "maximilien.bozon@gmail.com"
 
-# The address checkout_server.py answers on. Left relative so the same build
-# works on localhost now and behind a real domain later.
-CHECKOUT_ENDPOINT = "/api/checkout"
+# The address checkout_server.py answers on.
+#
+# Relative by default, which is exactly right locally: checkout_server.py
+# serves docs/ and answers /api/checkout from one process, so the page makes
+# no cross-origin request and there is no CORS in the way.
+#
+# The published site is not that arrangement. GitHub Pages serves the
+# photographs and Railway runs the checkout, so the panel has to call the
+# other host by name. Name it in the environment when you build:
+#
+#     CHECKOUT_ENDPOINT=https://<your-service>.up.railway.app/api/checkout \
+#         python3 build.py
+#
+# This address and SITE_ORIGIN on the Railway side are two halves of one
+# fact. checkout_server.py lets exactly SITE_ORIGIN through CORS, so if
+# these two disagree the browser blocks the call and the panel falls back
+# to the enquiry email.
+CHECKOUT_ENDPOINT = os.environ.get("CHECKOUT_ENDPOINT", "/api/checkout")
 
 # Set False to build the site with no ordering at all — the plates go back
 # to being just plates, and no order button is rendered anywhere.
 #
-# It is True so the prices show on the published site. Be clear about what
-# that means today: CHECKOUT_ENDPOINT is answered by checkout_server.py,
-# GitHub Pages serves files and nothing else, so the panel opens and prices
-# correctly but "Continue to payment" cannot reach anything. The panel
-# catches that and offers ENQUIRY_EMAIL instead, which is a soft landing
-# rather than a working till. Host checkout_server.py to close the gap.
+# It is True, and the till behind it is real once two things are true:
+# checkout_server.py is running somewhere with a Stripe key, and this build
+# was made with CHECKOUT_ENDPOINT pointing at it. Until both hold, the panel
+# still opens and prices correctly, and "Continue to payment" fails softly
+# into ENQUIRY_EMAIL rather than into nothing.
 OPEN = True
 
 
