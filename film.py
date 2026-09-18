@@ -7,15 +7,15 @@ the transport. That needs the frames as separate files, because a browser
 cannot seek inside an H.264 file accurately enough to do it — this clip
 carries three keyframes in five seconds, and seeking lands on those.
 
-Frames are not taken at a fixed interval. This clip spends its first second
-almost still, then pulls back fast, then settles: the busy stretch moves
-twenty times as much between frames as the end does. Sampling evenly would
-spend half the download on frames nobody can tell apart. So every frame is
-measured against the one before it, and a frame is kept whenever enough has
-changed since the last one kept. Motion gets all the frames the clip has;
-stillness gets a handful. Each kept frame records where in the clip it
-belongs, so the timing of the piece is unchanged — only the spacing of the
-stills that describe it.
+Frames are not taken at a fixed interval. This clip is moving by its second
+frame, hits its fastest at the eleventh, then settles: the opening second
+moves twenty times as much between frames as the closing one does. Sampling
+evenly would spend half the download on frames nobody can tell apart. So
+every frame is measured against the one before it, and a frame is kept
+whenever enough has changed since the last one kept. Motion gets all the
+frames the clip has; stillness gets a handful. Each kept frame records
+where in the clip it belongs, so the timing of the piece is unchanged —
+only the spacing of the stills that describe it.
 
     python3 film.py
 
@@ -36,14 +36,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SOURCE = os.path.join(HERE, "media", "scroll-clip.mp4")
 OUT = os.path.join(HERE, "docs", "assets", "film", "hero")
 
-# Frame width in pixels. The clip is 1152 wide and asking for more would only
-# enlarge it, which adds weight and no detail — the page can enlarge it for
-# free. This is the one number that limits how sharp the hero can be: a
-# higher-resolution master raises it, nothing else does.
-WIDTH = 1152
+# Frame width in pixels, set to the master's own width — asking for more
+# would only enlarge it, which adds weight and no detail, and the page can
+# enlarge it for free. This is the one number that limits how sharp the hero
+# can be: a higher-resolution master raises it, nothing else does. Even at
+# 1620 a full-screen retina window asks for around 2880, so the page is
+# still enlarging it by not quite double, and a wider master would still buy
+# real detail.
+WIDTH = 1620
 
 # JPEG quality, ffmpeg's scale: 2 is near-lossless and enormous, 31 is a
-# mess. 4 measures 43.5dB against the source, which is past the point of
+# mess. 4 measures 43.0dB against the source, which is past the point of
 # seeing the difference, and leaves headroom in the smooth dark greys of the
 # wall, where banding would show long before blockiness did.
 QUALITY = 4

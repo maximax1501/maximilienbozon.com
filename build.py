@@ -575,11 +575,12 @@ FILM_SCREENS = 3
 # How unevenly the scroll is spent across the clip. 0 spends it evenly, and
 # the opening pull-back then whips past in a fifth of the scroll while the
 # settle at the end takes a third of it doing very little. 1 bends the
-# mapping hard the other way, which slows the opening so much that the first
-# frame — the clip barely moves for its first half-second — sits frozen for
+# mapping hard the other way, which starts the wind at a standstill and so
+# strands the opening — the stretch where this clip moves fastest — across
 # a quarter of the scroll. 0.55 gives the pull-back a quarter of the scroll
 # and the last third of the clip under a quarter, at the cost of the opening
-# holding for a third of a screen rather than a fifth.
+# holding for a ninth of a screen rather than a twentieth — a cost this clip
+# barely pays, because it starts moving where the last one held still.
 FILM_EASE = 0.55
 
 FILM_DIR = os.path.join(OUT, "assets", "film", "hero")

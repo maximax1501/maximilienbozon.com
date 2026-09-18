@@ -146,14 +146,15 @@ scroll. A browser cannot seek inside an H.264 file accurately enough to do
 this: the clip carries three keyframes in five seconds, and any seek lands
 on one of those three. Separate frames land exactly where they are asked to.
 
-The frames are not taken at a fixed interval. This clip is almost still for
-its first second, then pulls back fast, then settles — the busy stretch moves
-twenty times as much between frames as the end does. So `film.py` measures
-every frame against the one before it and keeps one whenever enough has
-changed. The pull-back gets all twenty-four frames a second the clip has;
-the still end gets one in eight. Each frame records where in the clip it
-belongs, in `frames.json`, and the page maps your scroll position onto those
-— so the uneven spacing costs nothing and the timing is unchanged.
+The frames are not taken at a fixed interval. This clip is moving by its
+second frame, hits its fastest at the eleventh, then settles — the opening
+second moves twenty times as much between frames as the closing one does. So
+`film.py` measures every frame against the one before it and keeps one
+whenever enough has changed. The pull-back gets all twenty-four frames a
+second the clip has; the settled end gets one in six. Each frame records
+where in the clip it belongs, in `frames.json`, and the page maps your
+scroll position onto those — so the uneven spacing costs nothing and the
+timing is unchanged.
 
 To change the clip:
 
@@ -170,21 +171,22 @@ rushes its pull-back in the first fifth of the scroll and spends the last
 third of it settling almost invisibly. At 0.55, where it is set, the scroll
 runs slowly through the opening and quickens towards the end: the pull-back
 gets a quarter of the scroll instead of a fifth, and the last third of the
-clip takes under a quarter instead of a third. Raising it further mostly
-freezes the opening, because the clip barely moves for its first half-second
-and that stretch grows faster than anything else. In `film.py`, `THRESHOLD` is how much has to
-change before a frame is worth keeping — lower it for more frames and a
-heavier page — and `MAX_GAP` is the longest it will go without keeping one.
+clip takes under a quarter instead of a third. Raising it further starts the
+wind at a standstill, which strands the opening — the stretch where this clip
+moves fastest. In `film.py`, `THRESHOLD` is how much has to change before a
+frame is worth keeping — lower it for more frames and a heavier page — and
+`MAX_GAP` is the longest it will go without keeping one.
 
 ### How sharp it can be
 
 `WIDTH` in `film.py` is the one number that limits this, and it is set to the
 master's own width, because enlarging a frame before saving it adds weight
-and no detail. The clip is 1152 pixels wide and a full-screen retina window
-asks for around 2880, so the page is enlarging it roughly two and a half
-times. Nothing in the pipeline can recover that. If you can make the clip
-again at 1920 or wider, do — raise `WIDTH` to match and it is the only change
-that puts real detail on the screen.
+and no detail. The clip is 1620 pixels wide and a full-screen retina window
+asks for around 2880, so the page is still enlarging it by not quite double.
+Nothing in the pipeline can recover that. If you can make the clip again at
+2880 or wider, do — raise `WIDTH` to match and it is the only change that
+puts real detail on the screen. It is not free: the frames are 8.1 MB at
+1620 and were 3.4 MB at 1152, so weigh it against the opening screen's load.
 
 The frames are only fetched on a screen wide enough to hold a landscape
 picture, and never when the visitor has asked for reduced motion. A phone,

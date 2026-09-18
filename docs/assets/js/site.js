@@ -121,7 +121,7 @@
 
      Three things keep it honest. It only starts on a wide screen with
      motion allowed, because on a phone a landscape frame cropped to a
-     portrait window is a sliver and three megabytes is somebody's data
+     portrait window is a sliver and eight megabytes is somebody's data
      plan. It never blocks: the still photograph underneath is the page
      until the first frame is decoded, and stays the page if the frames
      never arrive. And it draws on an animation frame, never straight from
@@ -267,8 +267,8 @@
        p^2.2 spends more scroll where the picture is moving and less where
        it has settled. The bend is blended with the straight mapping rather
        than used on its own, because on its own it starts at a standstill,
-       and this clip opens on half a second of near-stillness that would
-       then sit frozen for a quarter of the scroll. */
+       and this clip opens on its fastest motion, which would then crawl
+       through the quarter of the scroll that has most to show. */
     function wind(p) {
       if (!ease) return p;
       return (1 - ease) * p + ease * Math.pow(p, 2.2);
