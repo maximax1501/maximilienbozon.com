@@ -7,3 +7,7 @@ __pycache__/
 # site actually serves is site/images/ — this one is just the staging folder
 # download-images.py writes into.
 /images/
+
+# Master video clips. The frames the site actually serves live in
+# docs/assets/film/ — this folder is just where film.py reads from.
+/media/

@@ -18,11 +18,15 @@ docs/                 ← this is the website. GitHub Pages serves this folder.
   sitemap.xml  robots.txt
   assets/css/site.css
   assets/js/site.js
+  assets/film/hero/     the homepage clip, one JPEG per frame
 
 build.py              regenerates docs/ from your photo list
 photos.py             the photo list — this is the file you edit
 captions.py           the title and one-line note under each photograph
+shop.py               the print shop: sizes, materials and prices
+checkout_server.py    takes the orders — and serves the site while you test
 download-images.py    pulls your photographs off Wix onto your machine
+film.py               cuts the homepage clip into the frames it scrolls through
 ```
 
 You can open `docs/index.html` in a browser right now to see it.
@@ -127,6 +131,184 @@ resolves to it.
 5. Commit and push — GitHub Pages redeploys on its own.
 
 That's the whole workflow. Order in the list is order on the page.
+
+---
+
+## The homepage film
+
+The homepage opens on a clip that is not played — it is wound by the scroll
+wheel. Three screens of scrolling carry it from the first frame to the last,
+forwards and backwards, and it stops wherever you stop.
+
+It works by not being a video at all. `film.py` cuts the clip into numbered
+stills, and the page keeps one on screen and swaps it for the next as you
+scroll. A browser cannot seek inside an H.264 file accurately enough to do
+this: the clip carries three keyframes in five seconds, and any seek lands
+on one of those three. Separate frames land exactly where they are asked to.
+
+The frames are not taken at a fixed interval. This clip is almost still for
+its first second, then pulls back fast, then settles — the busy stretch moves
+twenty times as much between frames as the end does. So `film.py` measures
+every frame against the one before it and keeps one whenever enough has
+changed. The pull-back gets all twenty-four frames a second the clip has;
+the still end gets one in eight. Each frame records where in the clip it
+belongs, in `frames.json`, and the page maps your scroll position onto those
+— so the uneven spacing costs nothing and the timing is unchanged.
+
+To change the clip:
+
+1. Put the new one at `media/scroll-clip.mp4`. That folder is yours alone —
+   like `images/`, it is never committed.
+2. Run `python3 film.py`. It needs ffmpeg once: `brew install ffmpeg`.
+3. Run `python3 build.py`, then commit and push. There is no frame count to
+   keep in sync: `build.py` reads `frames.json`.
+
+`FILM_SCREENS` in `build.py` is how many screens of scrolling play the whole
+thing — three at the moment. `FILM_EASE`, next to it, decides how evenly
+those three screens are spent. At 0 they are spent evenly, and this clip then
+rushes its pull-back in the first fifth of the scroll and spends the last
+third of it settling almost invisibly. At 0.55, where it is set, the scroll
+runs slowly through the opening and quickens towards the end: the pull-back
+gets a quarter of the scroll instead of a fifth, and the last third of the
+clip takes under a quarter instead of a third. Raising it further mostly
+freezes the opening, because the clip barely moves for its first half-second
+and that stretch grows faster than anything else. In `film.py`, `THRESHOLD` is how much has to
+change before a frame is worth keeping — lower it for more frames and a
+heavier page — and `MAX_GAP` is the longest it will go without keeping one.
+
+### How sharp it can be
+
+`WIDTH` in `film.py` is the one number that limits this, and it is set to the
+master's own width, because enlarging a frame before saving it adds weight
+and no detail. The clip is 1152 pixels wide and a full-screen retina window
+asks for around 2880, so the page is enlarging it roughly two and a half
+times. Nothing in the pipeline can recover that. If you can make the clip
+again at 1920 or wider, do — raise `WIDTH` to match and it is the only change
+that puts real detail on the screen.
+
+The frames are only fetched on a screen wide enough to hold a landscape
+picture, and never when the visitor has asked for reduced motion. A phone,
+an old browser, or a page with JavaScript switched off gets the still
+photograph the homepage always had — which is why that photograph is still
+in the markup underneath.
+
+---
+
+## Selling prints
+
+Click a photograph, and the viewer that opens now carries **Order a print**
+in its bottom bar. That opens a panel beside the picture: a size, a
+material, a framing, a price that adds up as you choose, and a button
+through to Stripe's own payment page. The photograph stays on screen the
+whole time, because that is the thing being bought.
+
+### The one file you edit
+
+Everything the shop offers and every price it charges lives in `shop.py`,
+the same way every photograph lives in `photos.py`. Nothing else in the
+project holds a number.
+
+```python
+FORMATS = [
+    {"id": "40",  "edge": 40,  "paper": 180, "plexi": 260, "frame": 120},
+    ...
+]
+```
+
+`edge` is the **longest side in centimetres**, not a fixed rectangle. Your
+photographs are not all the same shape, so a fixed 50×70 would crop a
+portrait to fit a frame. Giving the long side and letting the short side
+follow means every print is the picture as you made it — and the panel
+shows each buyer the real dimensions of the plate in front of them, worked
+out from that photograph's own proportions.
+
+Three prices per size, then:
+
+- `paper` — printed on fine art paper
+- `plexi` — face-mounted on plexiglass
+- `frame` — what the caisse américaine adds, on top of either
+
+`SUPPORTS` and `FRAMINGS` name those options and describe them in one line
+each. A framing lists which materials it may be combined with, so a pairing
+you don't offer simply cannot be chosen. `SHIPPING` sets the bands Stripe
+offers at checkout. `OPEN = False` switches the whole thing off and the
+plates go back to being plates.
+
+**The prices in the file now are placeholders.** They are there so the panel
+has something to show. Replace them before anyone but you can reach the
+site.
+
+### Running it
+
+```bash
+export STRIPE_SECRET_KEY=sk_test_...
+python3 checkout_server.py
+```
+
+Then open <http://localhost:8000> and order something. The key comes from
+your Stripe dashboard — start with the **test** key, `sk_test_...`, and pay
+with card number `4242 4242 4242 4242`, any future expiry, any CVC. No money
+moves. The server prints which mode it is in when it starts, so you always
+know whether a card would really be charged.
+
+One process does two jobs: it serves `docs/` exactly as a static host would,
+and it answers `POST /api/checkout` on the same address. Same origin, so
+there is no CORS to configure, and what you test locally is what runs later.
+It uses nothing but the standard library — no `pip install`, no dependency
+to keep current.
+
+### What the browser is trusted with
+
+Which photograph, which size, which material, which framing. That is all.
+
+**The price is never sent by the browser.** It is looked up again in
+`shop.py`, on the server, every single time, and that is the number Stripe
+charges. A page that could name its own price would be a page anyone could
+edit — the developer tools are right there. The photograph's title and
+series are looked up server-side too, from `captions.py`, so an order can't
+claim to be for something it isn't.
+
+Each payment carries the plate, series, size, material, framing and
+filename in its metadata, so an order can be filled from the Stripe
+dashboard without opening anything else.
+
+### Putting it online
+
+The site itself is static and GitHub Pages serves it happily. The checkout
+endpoint is not static — it needs somewhere to run, because creating a
+payment requires a secret key and a secret key cannot live in a web page.
+
+The smallest honest options:
+
+| Where | What it costs | What you do |
+| --- | --- | --- |
+| **Cloudflare Workers** | free at this volume | port `_checkout` to a Worker, point `CHECKOUT_ENDPOINT` at it |
+| **A small VPS** | ~€5/month | run `checkout_server.py` behind nginx |
+| **Stripe Payment Links** | free, no server | see below |
+
+If you'd rather not run anything at all, Stripe **Payment Links** are the
+way: make one link per size-and-material combination in the dashboard and
+have the panel send people to the matching link. You lose the per-photograph
+line on the receipt — the payment records which plate it was, but the buyer
+sees a generic product name — and every price change becomes dashboard work
+instead of one line in `shop.py`. That is the trade.
+
+Whichever you choose, set `PUBLIC_IMAGE_BASE=https://maximilienbozon.com`
+so Stripe can fetch the photograph and show it on the payment page. It can't
+do that from your laptop, which is why the picture is missing locally.
+
+### Before taking real money
+
+- Replace the placeholder prices, and check the total on screen against what
+  Stripe actually charges.
+- Fill in `SHIPPING` properly — a print at 100 cm is not posted for the same
+  as one at 40.
+- Swap `sk_test_` for `sk_live_` only at the very end, and order one print
+  from yourself before telling anyone.
+- Selling to consumers in the EU comes with obligations this code knows
+  nothing about: a right of withdrawal, terms of sale, and VAT once you pass
+  the threshold. Stripe Tax can handle the VAT; the rest is a page of text
+  you'll want to write.
 
 ---
 

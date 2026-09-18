@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "maximilienbozon-site",
+      "name": "shop",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8080", "--directory", "docs"],
-      "port": 8080
+      "runtimeArgs": ["checkout_server.py"],
+      "port": 8000
     }
   ]
 }

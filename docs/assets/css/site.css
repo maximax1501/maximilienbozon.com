@@ -244,7 +244,9 @@ html.overture-armed { overflow: hidden; }
 
 /* ---------- hero ---------- */
 
-.hero {
+.hero { position: relative; }
+
+.hero__stage {
   position: relative;
   min-height: 100vh;
   min-height: 100svh;
@@ -316,6 +318,62 @@ html.overture-armed { overflow: hidden; }
   transform-origin: top;
 }
 @keyframes cue { 0%,100% { transform: scaleY(0.35); opacity: 0.4; } 50% { transform: scaleY(1); opacity: 1; } }
+
+/* ---------- the hero film ---------- */
+/* The clip is not played, it is scrubbed: the stage stays pinned while the
+   page scrolls past it and each frame is drawn at the scroll position it
+   belongs to. Everything here waits for .is-film, which the script adds only
+   on a wide screen, with motion allowed, once the first frame has been
+   drawn. Until then — and on a phone, and without JavaScript — the section
+   is the still photograph it has always been. */
+
+.hero__film {
+  /* z-index 0 keeps the canvas above the still but under .hero__bg::after,
+     the gradient that the name is read against. */
+  position: absolute; inset: 0; z-index: 0;
+  width: 100%; height: 100%;
+  opacity: 0;
+  /* lighter than the still: the clip is the picture here, not a backdrop */
+  filter: brightness(0.8) contrast(1.04) saturate(0.9);
+  transition: opacity 700ms ease;
+}
+
+/* One screen to stand in, then --film-screens of scrolling to play through.
+   sticky measures itself against the nearest scrolling ancestor, so unlike
+   the plain hero this section must not clip its own overflow. */
+.hero--film.is-film {
+  height: calc((var(--film-screens, 3) + 1) * 100vh);
+  overflow: visible;
+}
+
+.hero--film.is-film .hero__stage {
+  position: sticky; top: 0;
+  min-height: 0;
+  height: 100vh; height: 100svh;
+}
+
+.hero--film.is-film .hero__film { opacity: 1; }
+
+/* The still stays underneath as the backstop: if a frame has not arrived
+   yet the canvas holds the last one it drew, and never shows nothing. */
+.hero--film.is-film .hero__bg img {
+  animation: none;
+  transform: none;
+  filter: brightness(0.52) contrast(1.04) saturate(0.85);
+}
+
+/* The name is the first thing and gives way to the picture. --film-fade
+   runs 1 to 0 across the opening stretch of the scroll. */
+.hero--film.is-film .hero__inner,
+.hero--film.is-film .hero__cue { opacity: var(--film-fade, 1); }
+
+/* The gradient exists to hold that name against the picture, and it is
+   heavy enough to smother a clip once the name has gone. So it leaves with
+   it, down to a quarter — enough to keep the masthead readable. */
+.hero--film.is-film .hero__bg::after {
+  opacity: calc(0.25 + 0.75 * var(--film-fade, 1));
+}
+.hero--film.is-film .hero__cue::after { animation-play-state: paused; }
 
 /* ---------- statement ---------- */
 
@@ -962,4 +1020,190 @@ html.lightbox-open { overflow: hidden; }
   .lightbox__loupe { transition: none; transform: none; }
 
   * { scroll-behavior: auto !important; }
+}
+
+
+/* ---------- ordering a print ----------
+   The panel is a column laid over one side of the lightbox rather than a
+   page of its own. Choosing a size is a decision about a particular
+   photograph, so the photograph stays on screen while it is made. On a
+   phone there is no room beside the picture, so it rises from the bottom
+   instead and stops short of the top, which keeps the plate in view. */
+
+.lightbox__order-btn {
+  font-family: "Archivo", system-ui, sans-serif; font-size: var(--t-label);
+  font-weight: 500; letter-spacing: 0.26em; text-transform: uppercase;
+  color: var(--vellum); background: none; cursor: pointer;
+  border: 0; border-bottom: 1px solid var(--lamp);
+  padding: 0 0 0.15rem;
+  transition: color 300ms var(--ease), opacity 300ms var(--ease);
+}
+.lightbox__order-btn:hover { color: var(--lamp); }
+
+.order {
+  position: absolute; z-index: 6; inset: 0 0 0 auto;
+  width: min(30rem, 100%);
+  background: rgba(7, 8, 10, 0.97);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border-left: 1px solid var(--rule);
+  opacity: 0; transform: translateX(2.5rem);
+  transition: opacity 380ms var(--ease), transform 420ms var(--ease);
+}
+.order.is-open { opacity: 1; transform: none; }
+.order[hidden] { display: none; }
+
+.order__scroll {
+  height: 100%; overflow-y: auto; overscroll-behavior: contain;
+  padding: clamp(3.4rem, 7vh, 4.4rem) clamp(1.4rem, 3vw, 2.4rem) 2.5rem;
+}
+
+.order__close {
+  position: absolute; top: 0.8rem; right: 0.8rem; z-index: 2;
+  width: 2.4rem; height: 2.4rem;
+  background: none; border: 1px solid rgba(233, 228, 217, 0.18);
+  color: var(--vellum); cursor: pointer; display: grid; place-items: center;
+  transition: border-color 300ms var(--ease);
+}
+.order__close:hover { border-color: var(--lamp); }
+
+.order__eyebrow { margin: 0 0 1.1rem; }
+.order__plate {
+  font-family: "Archivo", system-ui, sans-serif; font-size: var(--t-label);
+  letter-spacing: 0.26em; text-transform: uppercase; color: var(--ash-dim);
+  margin: 0;
+}
+.order__title {
+  font-family: "Bodoni Moda", serif; font-weight: 400; font-style: italic;
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem); line-height: 1.1;
+  margin: 0.3rem 0 1.8rem;
+}
+
+.order__group { border: 0; padding: 0; margin: 0 0 1.6rem; }
+.order__legend {
+  font-family: "Archivo", system-ui, sans-serif; font-size: var(--t-label);
+  font-weight: 500; letter-spacing: 0.26em; text-transform: uppercase;
+  color: var(--ash); padding: 0; margin-bottom: 0.7rem;
+}
+.order__options { display: grid; gap: 0.4rem; }
+
+/* The radio itself is taken out of the flow rather than hidden, so it can
+   still be reached by keyboard and still draw a focus ring on its label. */
+.order__opt { position: relative; display: block; cursor: pointer; }
+.order__opt input {
+  position: absolute; width: 1px; height: 1px; opacity: 0;
+  margin: 0; pointer-events: none;
+}
+.order__opt-body {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline; gap: 0.2rem 1rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--rule);
+  transition: border-color 260ms var(--ease), background 260ms var(--ease);
+}
+.order__opt:hover .order__opt-body { border-color: var(--ash-dim); }
+.order__opt input:checked + .order__opt-body {
+  border-color: var(--lamp); background: rgba(240, 223, 184, 0.05);
+}
+.order__opt input:focus-visible + .order__opt-body {
+  outline: 2px solid var(--lamp); outline-offset: 2px;
+}
+
+.order__opt-label {
+  font-family: "Archivo", system-ui, sans-serif; font-size: 0.92rem;
+  font-weight: 500; color: var(--vellum);
+}
+.order__opt-extra {
+  font-family: "Archivo", system-ui, sans-serif; font-size: 0.92rem;
+  color: var(--ash); justify-self: end; font-variant-numeric: tabular-nums;
+}
+.order__opt-note {
+  grid-column: 1 / -1; font-size: 0.82rem; color: var(--ash-dim);
+  line-height: 1.4;
+}
+
+.order__total {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 1rem; border-top: 1px solid var(--rule);
+  padding-top: 1rem; margin-top: 1.8rem;
+}
+.order__total-label {
+  font-family: "Archivo", system-ui, sans-serif; font-size: var(--t-label);
+  font-weight: 500; letter-spacing: 0.26em; text-transform: uppercase;
+  color: var(--ash);
+}
+.order__total-sum {
+  font-family: "Bodoni Moda", serif; font-size: clamp(1.5rem, 3vw, 2rem);
+  color: var(--vellum); font-variant-numeric: tabular-nums;
+}
+
+.order__fine {
+  font-size: 0.82rem; color: var(--ash-dim); line-height: 1.5;
+  margin: 0.5rem 0 1.4rem;
+}
+
+.order__buy {
+  width: 100%; cursor: pointer;
+  font-family: "Archivo", system-ui, sans-serif; font-size: var(--t-label);
+  font-weight: 600; letter-spacing: 0.26em; text-transform: uppercase;
+  color: var(--void); background: var(--vellum); border: 1px solid var(--vellum);
+  padding: 1rem 1.2rem;
+  transition: background 300ms var(--ease), color 300ms var(--ease),
+              opacity 300ms var(--ease);
+}
+.order__buy:hover:not(:disabled) { background: var(--lamp); border-color: var(--lamp); }
+.order__buy:disabled { opacity: 0.4; cursor: default; }
+
+.order__error {
+  margin: 0.9rem 0 0; font-size: 0.85rem; line-height: 1.5;
+  color: var(--vellum); border-left: 2px solid var(--lamp);
+  padding-left: 0.8rem;
+}
+.order__error a { color: var(--lamp); }
+
+.order__ask { margin: 1.4rem 0 0; font-size: 0.85rem; color: var(--ash-dim); }
+.order__ask a { color: var(--ash); }
+.order__ask a:hover { color: var(--vellum); }
+
+/* On a narrow screen the panel comes up from the bottom and leaves the top
+   third of the screen alone, so the photograph is still there behind it. */
+@media (max-width: 46rem) {
+  .order {
+    inset: auto 0 0 0; width: 100%; max-height: 78svh;
+    border-left: 0; border-top: 1px solid var(--rule);
+    transform: translateY(2.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .order { transition: none; transform: none; }
+}
+
+/* ---------- order confirmation ---------- */
+
+.order-done__ref {
+  font-family: "Archivo", system-ui, sans-serif; font-size: var(--t-label);
+  letter-spacing: 0.26em; text-transform: uppercase; color: var(--ash);
+  margin: 0 0 1.2rem;
+}
+.order-done__ref span { color: var(--vellum); }
+.order-done__ref[hidden] { display: none; }
+
+.order-done__note {
+  color: var(--ash); max-width: 42ch; margin: 0 0 2rem; font-size: 0.95rem;
+}
+.order-done__note a { color: var(--vellum); }
+
+/* On a phone the panel is a sheet, and a sheet tall enough to hold four
+   sizes and two more choices leaves the photograph a sliver behind it.
+   So while an order is open the stage gives up its height instead: the
+   plate shrinks to sit in the band above the sheet, whole and still
+   visible, which is the only reason to keep it on screen at all. The bar
+   goes, since the panel already names the plate it is offering. */
+@media (max-width: 46rem) {
+  .lightbox.is-ordering .lightbox__stage {
+    max-height: 22svh;
+    padding: 3.4rem clamp(0.9rem, 4vw, 4.4rem) 0.4rem;
+  }
+  .lightbox.is-ordering .lightbox__bar { display: none; }
+  .lightbox.is-ordering .lightbox__nav { display: none; }
 }

@@ -12,8 +12,11 @@ import html
 import os
 import shutil
 import subprocess
+import json
+
 import captions
 import photos
+import shop
 
 # The published folder. Named "docs" because GitHub Pages will only serve
 # the repository root or a folder called docs/ — nothing else.
@@ -146,6 +149,24 @@ OVERTURE = """<div class="overture" data-overture>
 """
 
 
+def shop_data():
+    """The price list, handed to the page as data rather than markup.
+
+    The order panel is built by script from this, so a change in shop.py
+    reaches every plate on the site without a single template touching a
+    number. When the shop is closed, or before any real price has been
+    entered, this emits nothing at all — and with no data the panel never
+    offers itself, which is the failure mode you want.
+    """
+    if not (shop.OPEN and shop.priced()):
+        return ""
+    payload = json.dumps(shop.config(), separators=(",", ":"), ensure_ascii=False)
+    # </script> can only appear inside JSON as an escaped sequence, so this
+    # is the one substitution needed to keep the block from closing early.
+    payload = payload.replace("</", "<\\/")
+    return '<script type="application/json" id="shop-data">%s</script>\n' % payload
+
+
 def page(title, desc, body, current, hero_image=None, intro=False):
     og = ""
     if hero_image:
@@ -183,7 +204,7 @@ def page(title, desc, body, current, hero_image=None, intro=False):
 %(body)s
 </main>
 %(colophon)s
-<script src="assets/js/site.js" defer></script>
+%(shop)s<script src="assets/js/site.js" defer></script>
 </body>
 </html>
 """ % {
@@ -191,6 +212,7 @@ def page(title, desc, body, current, hero_image=None, intro=False):
         "arm": OVERTURE_ARM if intro else "",
         "overture": OVERTURE if intro else "",
         "masthead": masthead(current), "body": body, "colophon": colophon(),
+        "shop": shop_data(),
     }
 
 
@@ -218,6 +240,7 @@ def plate(fname, index, series, ratios=None, caps=None, numeral=None, home=None)
     """
     ar_frame = ""
     ar_fig = ""
+    ar_data = ""
     cls = RHYTHM[index % len(RHYTHM)]
 
     dims = (ratios or {}).get(fname[:6])
@@ -225,6 +248,9 @@ def plate(fname, index, series, ratios=None, caps=None, numeral=None, home=None)
         w, h = dims
         ar_frame = ' style="aspect-ratio: %d / %d"' % (w, h)
         ar_fig = ' style="--ar: %.4f"' % (w / float(h))
+        # The order panel turns a long edge into real centimetres, which it
+        # can only do if it knows the shape of this particular photograph.
+        ar_data = ' data-ar="%.4f"' % (w / float(h))
         if h > w:  # tall plates get the narrow rhythm, never a full-bleed slot
             cls = PORTRAIT_RHYTHM[index % len(PORTRAIT_RHYTHM)]
 
@@ -251,7 +277,7 @@ def plate(fname, index, series, ratios=None, caps=None, numeral=None, home=None)
 
     return """  <figure class="plate plate--%(cls)s reveal" id="plate-%(anchor)s"%(ar_fig)s
     data-title="%(title)s" data-brief="%(brief)s" data-plate="%(numeral)s"
-    data-series="%(series)s" data-full="%(full)s">
+    data-series="%(series)s" data-full="%(full)s" data-id="%(anchor)s"%(ar_data)s>
     <div class="plate__frame"%(ar_frame)s>
       <img src="%(src)s"%(srcset)s alt="%(alt)s" loading="lazy" decoding="async">
       <a class="plate__expand" href="%(full)s" data-expand aria-label="%(label)s">
@@ -267,7 +293,7 @@ def plate(fname, index, series, ratios=None, caps=None, numeral=None, home=None)
       %(mark)s
     </figcaption>
   </figure>""" % {
-        "cls": cls, "ar_fig": ar_fig, "ar_frame": ar_frame,
+        "cls": cls, "ar_fig": ar_fig, "ar_frame": ar_frame, "ar_data": ar_data,
         "src": src(fname), "srcset": srcset(fname), "full": src(fname, 2400),
         "alt": esc(alt), "label": esc(expand_label), "numeral": numeral,
         "series": series, "title": esc(title), "brief": esc(brief),
@@ -538,6 +564,50 @@ def build_projects():
         body, "projects.html", PROJECTS[0][4] if PROJECTS else None))
 
 
+# ---- the homepage film -------------------------------------------------
+# The hero is a clip scrubbed by the scroll wheel: docs/assets/film/hero/
+# holds one JPEG per frame and the page swaps them as you scroll.
+
+# How many screens of scrolling play the whole clip. Three is unhurried
+# without stranding anyone who just wants to reach the work.
+FILM_SCREENS = 3
+
+# How unevenly the scroll is spent across the clip. 0 spends it evenly, and
+# the opening pull-back then whips past in a fifth of the scroll while the
+# settle at the end takes a third of it doing very little. 1 bends the
+# mapping hard the other way, which slows the opening so much that the first
+# frame — the clip barely moves for its first half-second — sits frozen for
+# a quarter of the scroll. 0.55 gives the pull-back a quarter of the scroll
+# and the last third of the clip under a quarter, at the cost of the opening
+# holding for a third of a screen rather than a fifth.
+FILM_EASE = 0.55
+
+FILM_DIR = os.path.join(OUT, "assets", "film", "hero")
+
+
+def film_times():
+    """Where each frame sits in the clip, 0 to 1, as film.py recorded it.
+
+    The frames are not evenly spaced — film.py keeps more of them where the
+    picture moves — so the page has to be told where each one belongs. If
+    the list is missing, the frames are assumed to be evenly spaced, which
+    is what they are if they came from somewhere else.
+    """
+    try:
+        with open(os.path.join(FILM_DIR, "frames.json"), encoding="utf-8") as fh:
+            times = json.load(fh)["times"]
+    except (OSError, ValueError, KeyError):
+        frames = sorted(f for f in os.listdir(FILM_DIR) if f.endswith(".jpg")) \
+            if os.path.isdir(FILM_DIR) else []
+        if len(frames) < 2:
+            return ""
+        times = [round(i / float(len(frames) - 1), 6) for i in range(len(frames))]
+
+    # Trimmed of the noise in the last decimal place: this goes into the
+    # markup of every visit, and three figures is finer than a pixel.
+    return json.dumps([round(t, 4) for t in times], separators=(",", ""))
+
+
 def build_home():
     hero = "12ad2e67eee04925be2658b93826a003~mv2.jpg"
     covers = {
@@ -560,18 +630,23 @@ def build_home():
     </figure>
   </a>""" % (slug, roman(i + 1), title, note, len(files), src(covers[title], 1200), title))
 
-    body = """<section class="hero">
-  <div class="hero__bg">
-    <img src="%(hero)s" alt="" aria-hidden="true" fetchpriority="high">
-  </div>
-  <div class="hero__inner">
-    <h1 class="hero__name"><span>Maximilien</span><span>Bozon</span></h1>
-    <div class="hero__meta">
-      <p class="label">Wildlife photography &middot; Paris &amp; London</p>
-      <p class="hero__line">Animals emerging from darkness, where light reveals form, structure and fragility.</p>
+    body = """<section class="hero hero--film" data-film
+         data-film-path="assets/film/hero/" data-film-times='%(times)s'
+         data-film-screens="%(screens)d" data-film-ease="%(ease)s">
+  <div class="hero__stage">
+    <div class="hero__bg">
+      <img src="%(hero)s" alt="" aria-hidden="true" fetchpriority="high">
+      <canvas class="hero__film" data-film-canvas aria-hidden="true"></canvas>
     </div>
+    <div class="hero__inner">
+      <h1 class="hero__name"><span>Maximilien</span><span>Bozon</span></h1>
+      <div class="hero__meta">
+        <p class="label">Wildlife photography &middot; Paris &amp; London</p>
+        <p class="hero__line">Animals emerging from darkness, where light reveals form, structure and fragility.</p>
+      </div>
+    </div>
+    <p class="hero__cue">Scroll</p>
   </div>
-  <p class="hero__cue">Scroll</p>
 </section>
 
 <section class="band shell">
@@ -607,7 +682,9 @@ def build_home():
   <span class="label">Prints, commissions, enquiries</span>
   <a href="contact.html">Get in touch &rarr;</a>
 </div>""" % {"hero": src(hero, 2400), "items": "\n".join(items),
-             "projects": project_cards()}
+             "projects": project_cards(),
+             "times": film_times(), "screens": FILM_SCREENS,
+             "ease": FILM_EASE}
 
     write("index.html", page(
         "Maximilien Bozon — Wildlife photography",
@@ -761,6 +838,29 @@ def build_contact():
         "Contact — Maximilien Bozon",
         "Contact Maximilien Bozon about prints, the Notice it edition, exhibitions and commissions.",
         body, "contact.html"))
+
+
+def build_order_complete():
+    """Where Stripe returns a buyer after a successful payment.
+
+    It deliberately promises nothing the shop cannot keep: Stripe has
+    already sent the receipt, so this page confirms the order exists and
+    says when the parcel moves. The order reference is filled in by script
+    from the session id Stripe puts in the address.
+    """
+    body = """<section class="pagehead shell" style="min-height:60svh">
+  <p class="label">Order received</p>
+  <h1 class="pagehead__title">Thank<br><em>you</em></h1>
+  <p class="pagehead__note">Your print is in the queue. %(lead)s</p>
+  <p class="order-done__ref" data-order-ref hidden>Reference <span></span></p>
+  <p class="order-done__note">A receipt is on its way to the address you paid with.
+  If anything about the order needs changing, reply to it or write to
+  <a href="mailto:%(email)s">%(email)s</a>.</p>
+  <p><a class="btn" href="index.html">Back to the work</a></p>
+</section>""" % {"lead": esc(shop.LEAD_TIME), "email": esc(shop.ENQUIRY_EMAIL)}
+    write("order-complete.html",
+          page("Order received — Maximilien Bozon",
+               "Your print order has been received.", body, "order-complete.html"))
 
 
 def build_404():
@@ -923,6 +1023,7 @@ def main():
             globals()[fn]()
     build_about()
     build_contact()
+    build_order_complete()
     build_404()
     build_extras()
     print("Built %d pages into %s (image source: %s)"

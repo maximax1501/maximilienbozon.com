@@ -1,6 +1,7 @@
 /* Maximilien Bozon — behaviour.
-   Five jobs: move the light, run the entrance, reveal on scroll, light the
-   plates, and open a plate full screen.
+   Six jobs: move the light, run the entrance, reveal on scroll, wind the
+   hero film by the scroll wheel, light the plates, and open a plate full
+   screen.
    Everything degrades to a fully readable page without it. */
 
 (function () {
@@ -110,6 +111,203 @@
     plates.forEach(function (p) { lighter.observe(p); });
   } else {
     plates.forEach(function (p) { p.classList.add("is-lit"); });
+  }
+
+  /* --- the hero film: the scroll wheel is the transport ---------------- */
+  /* The clip was cut into numbered stills by film.py. The section is made
+     tall, its stage is pinned to the window, and how far the page has
+     scrolled through the section decides which still is on the canvas. The
+     effect is a film you wind by hand, forwards and backwards.
+
+     Three things keep it honest. It only starts on a wide screen with
+     motion allowed, because on a phone a landscape frame cropped to a
+     portrait window is a sliver and three megabytes is somebody's data
+     plan. It never blocks: the still photograph underneath is the page
+     until the first frame is decoded, and stays the page if the frames
+     never arrive. And it draws on an animation frame, never straight from
+     the scroll event, so a fast wheel cannot queue up work it has to
+     finish. */
+  var film = document.querySelector("[data-film]");
+  var canvas = film && film.querySelector("[data-film-canvas]");
+
+  /* Pixels, not rem: this is about how much window there is to fill, and
+     the root font size on this site moves with the viewport. The aspect
+     test keeps a landscape clip out of a portrait window, where cover
+     would crop it to a sliver. */
+  var wide = window.matchMedia("(min-width: 800px) and (min-aspect-ratio: 9/10)");
+
+  if (film && canvas && canvas.getContext && !reduced) {
+    /* Where each frame belongs in the clip, 0 to 1. They are not evenly
+       spaced: film.py keeps every frame through the stretch where the
+       camera pulls back and only a few through the still end, so the
+       download buys smoothness where there is something to be smooth
+       about. The timing of the piece is carried here rather than by the
+       spacing of the files. */
+    var times = [];
+    try { times = JSON.parse(film.getAttribute("data-film-times") || "[]"); }
+    catch (e) { times = []; }
+
+    var count = times.length;
+    var path = film.getAttribute("data-film-path") || "";
+    var screens = parseInt(film.getAttribute("data-film-screens"), 10) || 3;
+    var ease = parseFloat(film.getAttribute("data-film-ease"));
+    if (!(ease >= 0 && ease <= 1)) { ease = 0; }
+
+    // The name holds the opening screen and has cleared by this much of
+    // the scroll, well before the camera starts to pull back.
+    var FADE = 0.16;
+
+    var ctx = canvas.getContext("2d", { alpha: false });
+    var shots = new Array(count);       // the Image objects, once decoded
+    var ready = 0;                      // how many have arrived, from the top
+    var shown = -1;                     // which one is on the canvas now
+    var started = false;
+    var pending = false;
+    var box = { w: 0, h: 0 };
+
+    if (count > 0) {
+      if (wide.matches) {
+        load();
+      } else if (wide.addEventListener) {
+        // a window dragged wider, or a phone turned on its side
+        wide.addEventListener("change", function once(e) {
+          if (!e.matches) return;
+          wide.removeEventListener("change", once);
+          load();
+        });
+      }
+    }
+
+    /* Frames are asked for in order and the run of them that has arrived
+       from the first is what we are allowed to draw, so the film is never
+       missing a middle. Six at a time keeps the connection busy without
+       starving the photographs further down the page. */
+    function load() {
+      var next = 0, open = 0;
+
+      function pump() {
+        while (open < 6 && next < count) { fetch(next++); }
+      }
+
+      function fetch(i) {
+        open++;
+        var img = new Image();
+        img.decoding = "async";
+        img.onload = function () { shots[i] = img; done(); };
+        img.onerror = function () { done(); };   // a hole stops the run, not the page
+        img.src = path + pad(i + 1) + ".jpg";
+      }
+
+      function done() {
+        open--;
+        while (ready < count && shots[ready]) { ready++; }
+        if (ready > 0 && !started) { begin(); }
+        draw();
+        pump();
+      }
+
+      pump();
+    }
+
+    function pad(n) { return n < 100 ? ("00" + n).slice(-3) : String(n); }
+
+    /* Nothing visible changes until there is a frame to show, so a failed
+       or slow download leaves the still photograph in place. */
+    function begin() {
+      started = true;
+      film.style.setProperty("--film-screens", screens);
+      film.classList.add("is-film");
+      size();
+      window.addEventListener("scroll", request, { passive: true });
+      window.addEventListener("resize", onResize, { passive: true });
+    }
+
+    /* The canvas is given real device pixels rather than CSS ones, or the
+       frames would be drawn soft on the screens most likely to see them. */
+    function size() {
+      var rect = canvas.getBoundingClientRect();
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      box.w = Math.round(rect.width * dpr);
+      box.h = Math.round(rect.height * dpr);
+      if (canvas.width !== box.w || canvas.height !== box.h) {
+        canvas.width = box.w;
+        canvas.height = box.h;
+        shown = -1;                    // resizing clears it: draw again
+
+        /* Giving a canvas a size throws away everything the context was
+           told, this included — so it is set here, after, and never once
+           at the start. The frames are drawn larger than they were cut,
+           and this is how the browser fills in between their pixels: the
+           default is the cheapest filter it has. */
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+      }
+    }
+
+    function onResize() { size(); request(); }
+
+    function request() {
+      if (pending) return;
+      pending = true;
+      window.requestAnimationFrame(function () { pending = false; draw(); });
+    }
+
+    /* 0 while the film waits at the top of the window, 1 once the section
+       has been scrolled all the way through. */
+    function progress() {
+      var top = film.getBoundingClientRect().top;
+      var run = film.offsetHeight - window.innerHeight;
+      if (run <= 0) return 0;
+      return Math.min(1, Math.max(0, -top / run));
+    }
+
+    /* Scroll in, position in the clip out. A straight one-to-one spends as
+       much scrolling on the still end of this clip as on the pull-back,
+       which reads as a rush followed by a long nothing. Bending it towards
+       p^2.2 spends more scroll where the picture is moving and less where
+       it has settled. The bend is blended with the straight mapping rather
+       than used on its own, because on its own it starts at a standstill,
+       and this clip opens on half a second of near-stillness that would
+       then sit frozen for a quarter of the scroll. */
+    function wind(p) {
+      if (!ease) return p;
+      return (1 - ease) * p + ease * Math.pow(p, 2.2);
+    }
+
+    /* The frame standing closest to this point in the clip. Binary search,
+       because a thrown scroll can land anywhere and walking from where we
+       were would make a long jump cost more than a short one. */
+    function at(p) {
+      var lo = 0, hi = count - 1;
+      while (lo < hi) {
+        var mid = (lo + hi) >> 1;
+        if (times[mid] < p) { lo = mid + 1; } else { hi = mid; }
+      }
+      if (lo > 0 && p - times[lo - 1] < times[lo] - p) { lo -= 1; }
+      return lo;
+    }
+
+    function draw() {
+      if (!started) return;
+      var p = progress();
+
+      film.style.setProperty(
+        "--film-fade", (1 - Math.min(1, p / FADE)).toFixed(3));
+
+      // The wanted frame, held back to the last one that has arrived.
+      var want = at(wind(p));
+      if (want > ready - 1) { want = ready - 1; }
+      if (want < 0 || want === shown) return;
+
+      var img = shots[want];
+      if (!img) return;
+      shown = want;
+
+      // cover: fill the window and lose the overflow, as the still does
+      var scale = Math.max(box.w / img.naturalWidth, box.h / img.naturalHeight);
+      var w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+      ctx.drawImage(img, (box.w - w) / 2, (box.h - h) / 2, w, h);
+    }
   }
 
   /* --- hold layout steady: set the real ratio once each image loads ---- */
@@ -222,13 +420,320 @@
   /* --- open a plate full screen --------------------------------------- */
   /* The expand control is a plain link to the full-size file, so it still
      works with none of this. Here it becomes a viewer instead. */
+  /* --- ordering a print ------------------------------------------------
+     The price list arrives as JSON written by build.py from shop.py, so
+     nothing here knows what anything costs. If that block is missing — the
+     shop closed, or no price entered yet — `shop` stays null and the order
+     control is never built, which is the right way for this to fail.
+
+     The panel slides over the lightbox rather than replacing it: choosing a
+     size is a decision about a particular photograph, and you should be
+     able to keep looking at it while you decide. */
+  var shop = null;
+  try {
+    var raw = document.getElementById("shop-data");
+    if (raw) { shop = JSON.parse(raw.textContent); }
+  } catch (e) { shop = null; }
+
+  function money(v) {
+    if (v === null || v === undefined) return "";
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency", currency: (shop.currency || "eur").toUpperCase(),
+        maximumFractionDigits: 0
+      }).format(v);
+    } catch (e) {
+      return (shop.symbol || "") + Math.round(v);
+    }
+  }
+
+  /* A format is a longest edge, not a rectangle, so the short side is the
+     photograph's own. This is what lets one price list serve pictures of
+     every shape without cropping any of them. */
+  function sides(edge, ar) {
+    if (!ar || !isFinite(ar) || ar <= 0) return null;
+    var w = ar >= 1 ? edge : edge * ar;
+    var h = ar >= 1 ? edge / ar : edge;
+    return Math.round(w) + " × " + Math.round(h) + " cm";
+  }
+
+  function remembered(key, fallback) {
+    try {
+      return window.localStorage.getItem("mb-order-" + key) || fallback;
+    } catch (e) { return fallback; }
+  }
+
+  function remember(key, value) {
+    try { window.localStorage.setItem("mb-order-" + key, value); } catch (e) {}
+  }
+
+  function makeOrder(host) {
+    if (!shop) return null;
+
+    var el = document.createElement("aside");
+    el.className = "order";
+    el.setAttribute("aria-label", "Order a print");
+    el.hidden = true;
+
+    var state = {
+      fig: null,
+      format: remembered("format", shop.formats[0] && shop.formats[0].id),
+      support: remembered("support", shop.supports[0] && shop.supports[0].id),
+      framing: remembered("framing", shop.framings[0] && shop.framings[0].id)
+    };
+
+    function group(name, legend, items) {
+      return '<fieldset class="order__group">' +
+        '<legend class="order__legend">' + legend + "</legend>" +
+        '<div class="order__options" data-group="' + name + '">' + items + "</div>" +
+        "</fieldset>";
+    }
+
+    function option(name, value, label, note, extra) {
+      return '<label class="order__opt">' +
+        '<input type="radio" name="mb-' + name + '" value="' + value + '">' +
+        '<span class="order__opt-body">' +
+          '<span class="order__opt-label">' + label + "</span>" +
+          (extra ? '<span class="order__opt-extra">' + extra + "</span>" : "") +
+          (note ? '<span class="order__opt-note">' + note + "</span>" : "") +
+        "</span></label>";
+    }
+
+    el.innerHTML =
+      '<button class="order__close" type="button" aria-label="Close order panel">✕</button>' +
+      '<div class="order__scroll">' +
+        '<p class="label order__eyebrow">Order a print</p>' +
+        '<p class="order__plate"></p>' +
+        '<h2 class="order__title"></h2>' +
+        '<form class="order__form">' +
+          group("format", "Size", "") +
+          group("support", "Print", "") +
+          group("framing", "Framing", "") +
+          '<div class="order__total">' +
+            '<span class="order__total-label">Total</span>' +
+            '<span class="order__total-sum"></span>' +
+          "</div>" +
+          '<p class="order__fine"></p>' +
+          '<button class="order__buy" type="submit">Continue to payment</button>' +
+          '<p class="order__error" role="alert" hidden></p>' +
+          '<p class="order__ask">Something else in mind? ' +
+            '<a href="mailto:' + shop.email + '">Write to me</a>.</p>' +
+        "</form>" +
+      "</div>";
+
+    host.appendChild(el);
+
+    var elPlate = el.querySelector(".order__plate");
+    var elTitle = el.querySelector(".order__title");
+    var elSum = el.querySelector(".order__total-sum");
+    var elFine = el.querySelector(".order__fine");
+    var elError = el.querySelector(".order__error");
+    var elBuy = el.querySelector(".order__buy");
+    var form = el.querySelector(".order__form");
+    var slots = {
+      format: el.querySelector('[data-group="format"]'),
+      support: el.querySelector('[data-group="support"]'),
+      framing: el.querySelector('[data-group="framing"]')
+    };
+
+    /* The framing choices depend on the print, and a price depends on all
+       three, so every render redraws the lot from `state`. Cheap, and it
+       makes an impossible combination impossible to hold. */
+    /* What shape this photograph is, which is what turns a long edge into
+       a pair of centimetres. build.py writes the ratio onto the plate when
+       it knows it, but it only knows it for the series that have a ratio
+       table — so the picture itself is asked second. By the time anyone is
+       ordering a print they are looking at the loaded file, and the file
+       is never wrong about its own proportions. */
+    function ratio(fig) {
+      if (!fig) return NaN;
+      var declared = parseFloat(fig.dataset.ar);
+      if (isFinite(declared) && declared > 0) return declared;
+
+      /* The plate's own thumbnail is lazy-loaded and, when an order is
+         opened from the index at the top, has usually never been drawn —
+         so it is asked last. The picture on screen is the one certain to
+         have arrived, and it is the same photograph. */
+      var shown = host.querySelector(".lightbox__img");
+      var img = (shown && shown.naturalWidth) ? shown : fig.querySelector("img");
+      if (img && img.naturalWidth && img.naturalHeight) {
+        return img.naturalWidth / img.naturalHeight;
+      }
+      return NaN;
+    }
+
+    function render() {
+      var ar = ratio(state.fig);
+
+      slots.format.innerHTML = shop.formats.map(function (f) {
+        var p = priceOf(f.id, state.support, state.framing);
+        var dim = sides(f.edge, ar);
+        return option("format", f.id, f.edge + " cm",
+                      dim || "long edge", p === null ? "" : money(p));
+      }).join("");
+
+      slots.support.innerHTML = shop.supports.map(function (s) {
+        return option("support", s.id, s.label, s.note, "");
+      }).join("");
+
+      slots.framing.innerHTML = shop.framings.filter(function (g) {
+        return g.supports.indexOf(state.support) > -1;
+      }).map(function (g) {
+        return option("framing", g.id, g.label, g.note, "");
+      }).join("");
+
+      /* A framing that the newly chosen print does not take falls back to
+         the first one that it does, rather than leaving a dead selection. */
+      if (!el.querySelector('input[name="mb-framing"][value="' + state.framing + '"]')) {
+        var first = el.querySelector('input[name="mb-framing"]');
+        if (first) { state.framing = first.value; }
+      }
+
+      ["format", "support", "framing"].forEach(function (name) {
+        var input = el.querySelector(
+          'input[name="mb-' + name + '"][value="' + state[name] + '"]');
+        if (input) {
+          input.checked = true;
+          input.closest(".order__opt").classList.add("is-on");
+        }
+      });
+
+      var total = priceOf(state.format, state.support, state.framing);
+      var ok = total !== null;
+      elSum.textContent = ok ? money(total) : "—";
+      elBuy.disabled = !ok;
+      elFine.textContent = [shop.edition, shop.leadTime, "Shipping calculated at checkout."]
+        .filter(Boolean).join(" ");
+    }
+
+    function priceOf(fid, sid, gid) {
+      var f = shop.formats.filter(function (x) { return x.id === fid; })[0];
+      if (!f || !f.prices[sid]) return null;
+      var p = f.prices[sid][gid];
+      return (p === null || p === undefined) ? null : p;
+    }
+
+    form.addEventListener("change", function (e) {
+      var input = e.target;
+      if (!input.name || input.name.indexOf("mb-") !== 0) return;
+      var key = input.name.slice(3);
+      state[key] = input.value;
+      remember(key, input.value);
+      hideError();
+      render();
+    });
+
+    function hideError() { elError.hidden = true; elError.textContent = ""; }
+
+    function fail(message) {
+      elError.hidden = false;
+      elError.innerHTML = message +
+        ' You can also <a href="mailto:' + shop.email + '">order by email</a>.';
+      elBuy.disabled = false;
+      elBuy.textContent = "Continue to payment";
+    }
+
+    /* The browser is told the price only so it can show it. What it sends
+       is the choice — size, print, framing, which photograph — and the
+       server prices that again from shop.py before it charges anything. A
+       page that could name its own price would be a page anyone could
+       rewrite. */
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (!state.fig) return;
+      hideError();
+      elBuy.disabled = true;
+      elBuy.textContent = "Opening checkout…";
+
+      var fig = state.fig;
+      fetch(shop.endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          photo: fig.dataset.id,
+          title: fig.dataset.title || "",
+          plate: fig.dataset.plate || "",
+          series: fig.dataset.series || "",
+          format: state.format,
+          support: state.support,
+          framing: state.framing,
+          returnTo: window.location.href
+        })
+      }).then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok) { throw new Error(data && data.error ? data.error : "Checkout is not answering."); }
+          return data;
+        });
+      }).then(function (data) {
+        if (!data.url) throw new Error("Checkout did not return an address.");
+        window.location.href = data.url;
+      }).catch(function (err) {
+        fail(err.message || "Checkout is not answering.");
+      });
+    });
+
+    el.querySelector(".order__close").addEventListener("click", hide);
+
+    function show(fig) {
+      state.fig = fig;
+      elPlate.textContent = "Plate " + (fig.dataset.plate || "") +
+                            " · " + (fig.dataset.series || "");
+      elTitle.textContent = fig.dataset.title || "This photograph";
+      hideError();
+      elBuy.textContent = "Continue to payment";
+      render();
+
+      // opened before the file finished arriving: draw the sizes again
+      // the moment it can say what shape it is.
+      var shown = host.querySelector(".lightbox__img");
+      if (shown && !shown.naturalWidth) {
+        shown.addEventListener("load", function once() {
+          shown.removeEventListener("load", once);
+          if (state.fig === fig) render();
+        });
+      }
+
+      window.clearTimeout(hiding);
+      el.hidden = false;
+
+      /* The open state is set synchronously, and only the transition is
+         allowed to depend on the frame timer. Deferring the class itself
+         to requestAnimationFrame looked identical on a screen someone was
+         watching and failed everywhere else: in a background tab the frame
+         never comes, so the panel would be up while every control still
+         believed it was shut — and Escape, meaning "put this order away",
+         would close the photograph instead. Reading offsetHeight flushes
+         the layout so the browser still has an old state to animate from. */
+      void el.offsetHeight;
+      el.classList.add("is-open");
+      host.classList.add("is-ordering");
+      el.querySelector(".order__close").focus();
+    }
+
+    var hiding = null;
+    function hide() {
+      if (el.hidden) return;
+      el.classList.remove("is-open");
+      host.classList.remove("is-ordering");
+      window.clearTimeout(hiding);
+      hiding = window.setTimeout(function () { el.hidden = true; }, 420);
+      var btn = host.querySelector(".lightbox__order-btn");
+      if (btn) btn.focus();
+    }
+
+    return {
+      el: el, show: show, hide: hide,
+      isOpen: function () { return el.classList.contains("is-open"); }
+    };
+  }
+
   var openable = Array.prototype.slice.call(
     document.querySelectorAll(".plate[data-full]"));
 
   if (openable.length) {
     var box = null, boxImg, boxIndex, boxTitle, boxBrief, boxCount, boxPrev, boxNext;
     var at = -1, opener = null;
-    var loupe, loupeBtn;
+    var loupe, loupeBtn, order = null;
 
     openable.forEach(function (fig) {
       var link = fig.querySelector("[data-expand]");
@@ -280,6 +785,7 @@
           '<div class="lightbox__meta">' +
             '<p class="lightbox__count"></p>' +
             '<button class="lightbox__loupe-btn" type="button" aria-pressed="true">Loupe</button>' +
+            (shop ? '<button class="lightbox__order-btn" type="button">Order a print</button>' : "") +
           "</div>" +
           '<p class="lightbox__title"></p>' +
           '<p class="lightbox__brief"></p>' +
@@ -297,11 +803,18 @@
       loupeBtn = box.querySelector(".lightbox__loupe-btn");
       wireLoupe();
 
+      if (shop) {
+        order = makeOrder(box);
+        box.querySelector(".lightbox__order-btn")
+           .addEventListener("click", function () { order.show(openable[at]); });
+      }
+
       box.querySelector(".lightbox__close").addEventListener("click", close);
       boxPrev.addEventListener("click", function () { open(at - 1); });
       boxNext.addEventListener("click", function () { open(at + 1); });
       box.addEventListener("click", function (e) {
-        if (e.target === box || e.target.classList.contains("lightbox__stage")) { close(); }
+        if (e.target !== box && !e.target.classList.contains("lightbox__stage")) return;
+        if (order && order.isOpen()) { order.hide(); } else { close(); }
       });
       boxImg.addEventListener("load", function () { box.classList.add("is-ready"); });
       document.addEventListener("keydown", onBoxKey);
@@ -409,24 +922,51 @@
 
     function close() {
       if (!box || !box.classList.contains("is-open")) return;
+      if (order) order.hide();
       box.classList.remove("is-open", "is-ready", "is-loupe");
       root.classList.remove("lightbox-open");
       if (opener) { opener.focus(); opener = null; }
     }
 
+    var FOCUSABLE = "button, input, a[href], select, textarea";
+
     function onBoxKey(e) {
       if (!box || !box.classList.contains("is-open")) return;
-      if (e.key === "Escape") { close(); }
-      else if (e.key === "ArrowLeft") { open(at - 1); }
-      else if (e.key === "ArrowRight") { open(at + 1); }
+
+      /* With the order panel up it is the panel that owns the keyboard.
+         Escape backs out of the choice rather than out of the photograph,
+         and the arrows stop walking the series — moving to another plate
+         under a half-filled order form would quietly change what you were
+         about to buy. */
+      var ordering = order && order.isOpen();
+
+      if (e.key === "Escape") { ordering ? order.hide() : close(); }
+      else if (e.key === "ArrowLeft") { if (!ordering) open(at - 1); }
+      else if (e.key === "ArrowRight") { if (!ordering) open(at + 1); }
       else if (e.key === "Tab") {                     // keep focus inside the viewer
+        var scope = ordering ? order.el : box;
         var stops = Array.prototype.filter.call(
-          box.querySelectorAll("button"), function (b) { return !b.disabled; });
+          scope.querySelectorAll(FOCUSABLE), function (b) {
+            return !b.disabled && b.offsetParent !== null;
+          });
         if (!stops.length) return;
         var first = stops[0], last = stops[stops.length - 1];
         if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       }
+    }
+  }
+
+  /* --- the order reference on the confirmation page -------------------
+     Stripe sends the buyer back with the session id in the address. The
+     last stretch of it is enough to quote in an email, and short enough to
+     read aloud, so that is what the page shows. */
+  var refSlot = document.querySelector("[data-order-ref]");
+  if (refSlot) {
+    var sid = new URLSearchParams(window.location.search).get("session_id");
+    if (sid) {
+      refSlot.querySelector("span").textContent = sid.slice(-12).toUpperCase();
+      refSlot.hidden = false;
     }
   }
 
