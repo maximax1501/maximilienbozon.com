@@ -566,9 +566,7 @@ def build_projects():
 
 # ---- the homepage film -------------------------------------------------
 # The hero is a clip scrubbed by the scroll wheel: docs/assets/film/hero/
-# holds one JPEG per frame of the original clip, and the page swaps them as
-# you scroll, easing from one to the next so a wheel notch reads as a move
-# rather than a jump.
+# holds one JPEG per frame and the page swaps them as you scroll.
 
 # How many screens of scrolling play the whole clip. Three is unhurried
 # without stranding anyone who just wants to reach the work.
@@ -585,48 +583,30 @@ FILM_SCREENS = 3
 # barely pays, because it starts moving where the last one held still.
 FILM_EASE = 0.55
 
-FILM_PATH = "assets/film/hero/"
-FILM_DIR = os.path.join(OUT, *FILM_PATH.strip("/").split("/"))
+FILM_DIR = os.path.join(OUT, "assets", "film", "hero")
 
 
-def film_cut():
-    """What the page needs to know about the frames film.py wrote.
+def film_times():
+    """Where each frame sits in the clip, 0 to 1, as film.py recorded it.
 
-    Two things. Where each frame sits in the clip, 0 to 1 — film.py keeps
-    every frame the clip has, so these are evenly spaced, and the fallback
-    below comes out the same. The list is still published and still read,
-    because it is what lets the spacing be something else — an earlier cut
-    dropped the frames nothing moved through, and a future one could again
-    — and because it is what tells the page how many frames there are to
-    ask for.
-
-    And whether there is a narrow cut of those same frames for a phone to
-    fetch instead of the wide one.
+    The frames are not evenly spaced — film.py keeps more of them where the
+    picture moves — so the page has to be told where each one belongs. If
+    the list is missing, the frames are assumed to be evenly spaced, which
+    is what they are if they came from somewhere else.
     """
-    meta = {}
     try:
         with open(os.path.join(FILM_DIR, "frames.json"), encoding="utf-8") as fh:
-            meta = json.load(fh)
-        times = meta["times"]
+            times = json.load(fh)["times"]
     except (OSError, ValueError, KeyError):
         frames = sorted(f for f in os.listdir(FILM_DIR) if f.endswith(".jpg")) \
             if os.path.isdir(FILM_DIR) else []
         if len(frames) < 2:
-            return "", ""
+            return ""
         times = [round(i / float(len(frames) - 1), 6) for i in range(len(frames))]
 
     # Trimmed of the noise in the last decimal place: this goes into the
     # markup of every visit, and three figures is finer than a pixel.
-    times = json.dumps([round(t, 4) for t in times], separators=(",", ""))
-
-    # The narrow cut is announced only if it is really on disk. A frames.json
-    # left behind by an older film.py would otherwise send every phone to a
-    # folder of 404s, and the page would sit on the still photograph
-    # wondering where its film had got to.
-    small = meta.get("smallPath") or ""
-    if not small or not os.path.isdir(os.path.join(FILM_DIR, small)):
-        return times, ""
-    return times, ' data-film-small="%s%s"' % (FILM_PATH, small)
+    return json.dumps([round(t, 4) for t in times], separators=(",", ""))
 
 
 def build_home():
@@ -651,9 +631,8 @@ def build_home():
     </figure>
   </a>""" % (slug, roman(i + 1), title, note, len(files), src(covers[title], 1200), title))
 
-    times, small = film_cut()
     body = """<section class="hero hero--film" data-film
-         data-film-path="%(path)s"%(small)s data-film-times='%(times)s'
+         data-film-path="assets/film/hero/" data-film-times='%(times)s'
          data-film-screens="%(screens)d" data-film-ease="%(ease)s">
   <div class="hero__stage">
     <div class="hero__bg">
@@ -705,8 +684,7 @@ def build_home():
   <a href="contact.html">Get in touch &rarr;</a>
 </div>""" % {"hero": src(hero, 2400), "items": "\n".join(items),
              "projects": project_cards(),
-             "path": FILM_PATH, "small": small,
-             "times": times, "screens": FILM_SCREENS,
+             "times": film_times(), "screens": FILM_SCREENS,
              "ease": FILM_EASE}
 
     write("index.html", page(
