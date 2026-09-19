@@ -114,41 +114,71 @@
   }
 
   /* --- the hero film: the scroll wheel is the transport ---------------- */
-  /* The clip was cut into numbered stills by film.py. The section is made
-     tall, its stage is pinned to the window, and how far the page has
-     scrolled through the section decides which still is on the canvas. The
-     effect is a film you wind by hand, forwards and backwards.
+  /* The clip was cut into numbered stills by film.py, one per frame of the
+     original. The section is made tall, its stage is pinned to the window,
+     and how far the page has scrolled through the section decides which
+     still is on the canvas. The effect is a film you wind by hand,
+     forwards and backwards.
 
-     Three things keep it honest. It only starts on a wide screen with
-     motion allowed, because on a phone a landscape frame cropped to a
-     portrait window is a sliver and eight megabytes is somebody's data
-     plan. It never blocks: the still photograph underneath is the page
-     until the first frame is decoded, and stays the page if the frames
-     never arrive. And it draws on an animation frame, never straight from
-     the scroll event, so a fast wheel cannot queue up work it has to
-     finish. */
+     Three things keep it honest. It is never wound for somebody who has
+     asked for less motion, or for less data. It never blocks: the still
+     photograph underneath is the page until the first frame is decoded,
+     and stays the page if the frames never arrive. And nothing is drawn
+     from the scroll event itself — the scroll only moves a target, and a
+     clock-driven loop walks the picture towards it, so a thrown wheel
+     cannot queue up work the page then has to get through.
+
+     A phone runs the film too, and runs it differently: it is sent a
+     narrower cut of the same frames, and the picture is fitted to its
+     upright window rather than cropped to it. Nothing changes on a window
+     that was already running the film. See ZOOM and paint(). */
   var film = document.querySelector("[data-film]");
   var canvas = film && film.querySelector("[data-film-canvas]");
 
-  /* Pixels, not rem: this is about how much window there is to fill, and
-     the root font size on this site moves with the viewport. The aspect
-     test keeps a landscape clip out of a portrait window, where cover
-     would crop it to a sliver. */
-  var wide = window.matchMedia("(min-width: 800px) and (min-aspect-ratio: 9/10)");
+  /* A phone is not a small window. A window can be dragged bigger; a
+     screen cannot, and it is the screen that says whose data plan this
+     is. Its short side is the steady half of it — around 400 points on a
+     phone however the phone is held, nearer 750 on the smallest tablet —
+     so that is what picks which cut of the film to fetch. */
+  var display = window.screen || {};
+  var phone = Math.min(display.width || 9999, display.height || 9999) <= 560;
+
+  /* Data Saver on is somebody asking not to be sent four megabytes of
+     scenery. They keep the still.
+
+     Only that flag, and not the connection's own opinion of its speed:
+     effectiveType is a guess made from recent round trips, and it guesses
+     "2g" often enough on a connection that is nothing of the kind — a
+     local server answering instantly reads as 2g — to be worth nothing
+     here. A slow connection is already handled, and handled better, by
+     the loading below: nothing blocks on a frame, the frames are fetched
+     nearest-first to where the film is standing, and the still photograph
+     holds the page for as long as it takes. saveData is a person saying
+     no. The rest is arithmetic saying maybe. */
+  var line = navigator.connection || navigator.mozConnection
+    || navigator.webkitConnection;
+  var thrifty = !!(line && line.saveData);
 
   if (film && canvas && canvas.getContext && !reduced) {
-    /* Where each frame belongs in the clip, 0 to 1. They are not evenly
-       spaced: film.py keeps every frame through the stretch where the
-       camera pulls back and only a few through the still end, so the
-       download buys smoothness where there is something to be smooth
-       about. The timing of the piece is carried here rather than by the
-       spacing of the files. */
+    /* Where each frame belongs in the clip, 0 to 1. film.py keeps every
+       frame the clip has, so these are evenly spaced — but the page reads
+       the list rather than assuming that, and an unevenly cut film would
+       still play correctly. The timing of the piece is carried here rather
+       than by the spacing of the files. */
     var times = [];
     try { times = JSON.parse(film.getAttribute("data-film-times") || "[]"); }
     catch (e) { times = []; }
 
     var count = times.length;
-    var path = film.getAttribute("data-film-path") || "";
+
+    /* The narrow cut if there is one and this is a phone: the same frames
+       at 900 pixels instead of 1620, 4.3 MB instead of 11.0, and still
+       more picture than a phone is ever asked to draw. Chosen once, on the
+       way in. A phone turned on its side then has the film it already has,
+       which is the right answer — spending the rest of somebody's data on
+       sharpness they asked for by rotating their wrist is not. */
+    var path = (phone && film.getAttribute("data-film-small"))
+      || film.getAttribute("data-film-path") || "";
     var screens = parseInt(film.getAttribute("data-film-screens"), 10) || 3;
     var ease = parseFloat(film.getAttribute("data-film-ease"));
     if (!(ease >= 0 && ease <= 1)) { ease = 0; }
@@ -157,52 +187,182 @@
     // the scroll, well before the camera starts to pull back.
     var FADE = 0.16;
 
+    /* How the picture is fitted to a window it cannot fill.
+
+       On an upright window — a phone held the usual way — covering it
+       keeps the middle third of the frame's width and throws the rest
+       away. For most clips that is a crop. For this one it is the ending:
+       the pull-back finishes on a framed print whose own edges sit near
+       the left and right of the frame, so cropping cuts the frame off the
+       picture of a frame.
+
+       So there the picture is fitted to the width instead and the dark
+       takes the rest of the window. It does not open that way — a picture
+       standing in the middle of a phone screen is a poor way to begin — it
+       opens ZOOM times wider than the window, cropped like the still
+       photograph it is replacing, and gives that up over the first part of
+       the clip. That is not a second piece of choreography laid over the
+       first: the clip is already pulling back, and this is the same move
+       carried a little further than the camera carried it.
+
+       1.6 opens on about half the height of a phone screen, and is as far
+       as the narrow cut can be enlarged before it goes softer than the
+       wide cut already is on a retina desktop. ZOOM_BY is where it has to
+       be spent by: the framed print's edges come into this clip about a
+       fifth of the way through, and from there on the width is no longer
+       ours to crop. */
+    var ZOOM = 1.6;
+    var ZOOM_BY = 0.22;
+
+    /* And where that happens instead of covering. 9:10 is the line the
+       film used to be refused at altogether, which is what makes it the
+       right place to put this: every window that already had the film
+       keeps it exactly as it was, filled and cropped, and the windows that
+       were being handed the still photograph instead are the ones now
+       being fitted to.
+
+       It is not the line the picture would choose. A 9:10 window covered
+       keeps three fifths of the frame's width, which already clips the
+       edges of the framed print at the end. But a window that shape has
+       been living with that crop since the film went in, and quietly
+       letterboxing it now would be a change nobody asked for. */
+    var UPRIGHT = 9 / 10;
+
+    /* The page's own ground, read rather than repeated here, so that what
+       the film is letterboxed into is the same black as the section it is
+       standing in. */
+    var VOID = (window.getComputedStyle(root).getPropertyValue("--void")
+      || "").trim() || "#07080a";
+
+    /* How long the picture takes to reach where the scroll has gone, in
+       milliseconds. A wheel notch is not a movement, it is a jump: one
+       event can land a tenth of the clip away, and drawing it straight
+       there is the jerk. So the scroll sets a target, and each pass of the
+       loop closes part of the distance — all but a twentieth of it in this
+       long. Much below 80 and there is nothing to see; much above 120 and
+       the film starts to feel like it is being towed. */
+    var FOLLOW = 100;
+
+    /* Near enough to have arrived. Far below the distance between two
+       frames, so the loop stops on the frame it was heading for instead of
+       spinning on a gap too small to draw. */
+    var ARRIVED = 0.00005;
+
     var ctx = canvas.getContext("2d", { alpha: false });
-    var shots = new Array(count);       // the Image objects, once decoded
-    var ready = 0;                      // how many have arrived, from the top
+    var shots = new Array(count);       // decoded frames, by index
+    var asked = new Array(count);       // 0 not yet, 1 in flight, 2 here, 3 lost
+    var arrived = 0;                    // how many are here, anywhere in the run
     var shown = -1;                     // which one is on the canvas now
+    var drawn = 0;                      // and at what scale it was drawn
     var started = false;
-    var pending = false;
     var box = { w: 0, h: 0 };
 
-    if (count > 0) {
-      if (wide.matches) {
-        load();
-      } else if (wide.addEventListener) {
-        // a window dragged wider, or a phone turned on its side
-        wide.addEventListener("change", function once(e) {
-          if (!e.matches) return;
-          wide.removeEventListener("change", once);
-          load();
-        });
-      }
-    }
+    var target = 0;                     // where the scroll has put the film
+    var eased = 0;                      // where the picture has got to
+    var clock = 0;                      // when the loop last stepped
+    var winding = false;                // is the loop running
 
-    /* Frames are asked for in order and the run of them that has arrived
-       from the first is what we are allowed to draw, so the film is never
-       missing a middle. Six at a time keeps the connection busy without
-       starving the photographs further down the page. */
+    if (count > 0 && !thrifty) { load(); }
+
+    /* Frames are fetched nearest-first to wherever the film is standing,
+       and one that never arrives is stepped over rather than waited on.
+       That last part matters: asking for them strictly in order and
+       refusing to draw past the first gap means a single dropped
+       connection costs the whole rest of the film. */
     function load() {
-      var next = 0, open = 0;
+      var open = 0;
 
+      /* Six at a time keeps the connection busy without starving the
+         photographs further down the page. */
       function pump() {
-        while (open < 6 && next < count) { fetch(next++); }
+        while (open < 6) {
+          var i = missing();
+          if (i < 0) return;
+          get(i, 0);
+        }
       }
 
-      function fetch(i) {
+      /* Which frame to ask for next: the nearest one to where the film is
+         standing that has not been asked for. At the top of the page that
+         is frame one and the ones behind it, which is the order they are
+         needed in. Once somebody has scrolled it follows them — forwards
+         first, since that is the way the scroll is usually going — so a
+         film wound halfway fills in from halfway, rather than spending the
+         connection on frames already behind the viewer. */
+      function missing() {
+        var from = at(wind(eased));
+        for (var d = 0; d < count; d++) {
+          if (from + d < count && !asked[from + d]) return from + d;
+          if (from - d >= 0 && !asked[from - d]) return from - d;
+        }
+        return -1;
+      }
+
+      function get(i, tries) {
+        asked[i] = 1;
         open++;
+
+        var url = path + pad(i + 1) + ".jpg";
+        if (tries) { url += (url.indexOf("?") < 0 ? "?" : "&") + "retry=" + tries; }
+
         var img = new Image();
         img.decoding = "async";
-        img.onload = function () { shots[i] = img; done(); };
-        img.onerror = function () { done(); };   // a hole stops the run, not the page
-        img.src = path + pad(i + 1) + ".jpg";
+
+        img.onload = function () {
+          /* onload only means the bytes are here. An image that has not
+             been decoded yet is decoded by drawImage — on the very frame
+             that is trying to draw it, which is the hitch this loop exists
+             to avoid. decode() does that work now, off the scroll, and the
+             frame does not count as here until it comes back. A rejected
+             decode is not a lost frame: the work was refused or abandoned,
+             not the picture, so it is counted anyway and the first draw
+             pays for it as it used to.
+
+             In two cases, though, that promise cannot be trusted to come
+             back at all. A browser is entitled to hold a decode until the
+             page is actually being looked at, and a tab opened in the
+             background would then take six frames and stop, every one of
+             them waiting on a decode that will not finish until somebody
+             looks — so a hidden page does not wait, and one that is
+             hidden while a decode is in flight gives up waiting shortly
+             after. Neither costs anything: an undecoded frame is still a
+             frame, and nothing is being drawn in a tab nobody is
+             watching. */
+          var counted = false;
+          function keep() {
+            if (counted) return;
+            counted = true;
+            shots[i] = img;
+            asked[i] = 2;
+            arrived++;
+            landed();
+          }
+          if (img.decode && !document.hidden) {
+            img.decode().then(keep, keep);
+            window.setTimeout(keep, 400);
+          } else {
+            keep();
+          }
+        };
+
+        img.onerror = function () {
+          open--;
+          if (tries < 1) {
+            // One more go, past the cache, a moment later — while the rest
+            // of the film carries on arriving.
+            window.setTimeout(function () { get(i, tries + 1); pump(); }, 600);
+          } else {
+            asked[i] = 3;              // lost for good: the film steps over it
+          }
+          pump();
+        };
+
+        img.src = url;
       }
 
-      function done() {
+      function landed() {
         open--;
-        while (ready < count && shots[ready]) { ready++; }
-        if (ready > 0 && !started) { begin(); }
-        draw();
+        if (!started) { begin(); } else { request(); }
         pump();
       }
 
@@ -218,8 +378,22 @@
       film.style.setProperty("--film-screens", screens);
       film.classList.add("is-film");
       size();
+      // Where the page already is, not zero — the class above is what made
+      // the section tall, so this has to be read after it. A reload lands
+      // mid-section with the film part-wound, and it should open there
+      // rather than wind itself forward from the start.
+      target = eased = progress();
+
+      // The first frame goes on before anything can be shown of the
+      // canvas: this whole function is one task, so the class above and
+      // this draw reach the screen together, and the canvas never fades
+      // up empty. It cannot be left to the loop, which does not run at
+      // all in a tab nobody is looking at.
+      paint();
+
       window.addEventListener("scroll", request, { passive: true });
       window.addEventListener("resize", onResize, { passive: true });
+      request();
     }
 
     /* The canvas is given real device pixels rather than CSS ones, or the
@@ -232,7 +406,7 @@
       if (canvas.width !== box.w || canvas.height !== box.h) {
         canvas.width = box.w;
         canvas.height = box.h;
-        shown = -1;                    // resizing clears it: draw again
+        shown = -1; drawn = 0;         // resizing clears it: draw again
 
         /* Giving a canvas a size throws away everything the context was
            told, this included — so it is set here, after, and never once
@@ -246,10 +420,49 @@
 
     function onResize() { size(); request(); }
 
+    /* Every way the film can move comes through here — a scroll, a resize,
+       a frame arriving. It reads where the scroll has got to and makes
+       sure the loop is running. It never draws. */
     function request() {
-      if (pending) return;
-      pending = true;
-      window.requestAnimationFrame(function () { pending = false; draw(); });
+      if (!started) return;
+      target = progress();
+      if (winding) return;
+      winding = true;
+      // Timed from the scroll itself, not from the loop's first pass: the
+      // two are a frame apart, and starting the clock late would hand a
+      // 60Hz screen a frame's less movement than a 120Hz one, which is
+      // exactly the difference the elapsed-time arithmetic is here to
+      // remove. rAF timestamps are measured from the same origin as
+      // performance.now(), so the two can be subtracted.
+      clock = (window.performance && window.performance.now)
+        ? window.performance.now() : 0;
+      window.requestAnimationFrame(step);
+    }
+
+    /* Each pass closes part of the distance between where the picture is
+       and where the scroll has gone, draws, and keeps going until the two
+       meet. How much it closes is worked out from the milliseconds that
+       actually elapsed, not from the number of passes, so a 120Hz screen
+       and a 60Hz one take the same tenth of a second to catch up — half
+       the steps, twice as much in each. */
+    function step(now) {
+      if (!clock) { clock = now; }   // no clock to read: measure from here
+
+      // A tab left in the background wakes with seconds in hand. Capped,
+      // so the film resumes rather than snapping.
+      var since = Math.min(now - clock, 100);
+      clock = now;
+
+      var gap = target - eased;
+      if (Math.abs(gap) < ARRIVED) {
+        eased = target;
+        winding = false;
+      } else {
+        eased += gap * (1 - Math.pow(0.05, since / FOLLOW));
+      }
+
+      paint();
+      if (winding) { window.requestAnimationFrame(step); }
     }
 
     /* 0 while the film waits at the top of the window, 1 once the section
@@ -274,6 +487,16 @@
       return (1 - ease) * p + ease * Math.pow(p, 2.2);
     }
 
+    /* How much wider than the window the picture is drawn, at this point
+       in the clip. Smoothstepped rather than run off at a constant rate,
+       so it neither starts nor stops moving abruptly: it leaves the clip's
+       own opening to itself, and settles onto the width rather than
+       arriving at it. */
+    function zoom(p) {
+      var t = Math.min(1, p / ZOOM_BY);
+      return 1 + (ZOOM - 1) * (1 - t * t * (3 - 2 * t));
+    }
+
     /* The frame standing closest to this point in the clip. Binary search,
        because a thrown scroll can land anywhere and walking from where we
        were would make a long jump cost more than a short one. */
@@ -287,24 +510,54 @@
       return lo;
     }
 
-    function draw() {
+    /* The wanted frame if it is here, otherwise the nearest one that is.
+       A frame still in flight, or lost for good, is stepped over: the film
+       runs coarser across the gap and fills itself in as the rest land,
+       which is the failure the eye forgives most easily. */
+    function nearest(i) {
+      if (!arrived) return -1;
+      if (shots[i]) return i;
+      for (var d = 1; d < count; d++) {
+        if (i + d < count && shots[i + d]) return i + d;
+        if (i - d >= 0 && shots[i - d]) return i - d;
+      }
+      return -1;
+    }
+
+    function paint() {
       if (!started) return;
-      var p = progress();
 
       film.style.setProperty(
-        "--film-fade", (1 - Math.min(1, p / FADE)).toFixed(3));
+        "--film-fade", (1 - Math.min(1, eased / FADE)).toFixed(3));
 
-      // The wanted frame, held back to the last one that has arrived.
-      var want = at(wind(p));
-      if (want > ready - 1) { want = ready - 1; }
-      if (want < 0 || want === shown) return;
-
+      var p = wind(eased);
+      var want = nearest(at(p));
+      if (want < 0) return;
       var img = shots[want];
-      if (!img) return;
-      shown = want;
 
-      // cover: fill the window and lose the overflow, as the still does
+      /* cover: fill the window and lose the overflow, as the still does.
+         Unless the window is upright, where what would be lost is the
+         sides, and on this clip the sides are the picture — there the
+         frame is fitted to the width instead, zoomed out onto it over the
+         opening of the clip. */
       var scale = Math.max(box.w / img.naturalWidth, box.h / img.naturalHeight);
+      var fitted = box.w < box.h * UPRIGHT;
+      if (fitted) {
+        scale = Math.min(scale, box.w / img.naturalWidth * zoom(p));
+      }
+
+      // The zoom moves between frames as well as across them, so a frame
+      // already on the canvas can still be owed a draw at a new size.
+      if (want === shown && scale === drawn) return;
+      shown = want;
+      drawn = scale;
+
+      // What the frame no longer covers is the dark the film ends in.
+      if (fitted) {
+        ctx.fillStyle = VOID;
+        ctx.fillRect(0, 0, box.w, box.h);
+      }
+
       var w = img.naturalWidth * scale, h = img.naturalHeight * scale;
       ctx.drawImage(img, (box.w - w) / 2, (box.h - h) / 2, w, h);
     }

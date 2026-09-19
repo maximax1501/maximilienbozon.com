@@ -330,10 +330,21 @@ html.overture-armed { overflow: hidden; }
 /* ---------- the hero film ---------- */
 /* The clip is not played, it is scrubbed: the stage stays pinned while the
    page scrolls past it and each frame is drawn at the scroll position it
-   belongs to. Everything here waits for .is-film, which the script adds only
-   on a wide screen, with motion allowed, once the first frame has been
-   drawn. Until then — and on a phone, and without JavaScript — the section
-   is the still photograph it has always been. */
+   belongs to. Everything here waits for .is-film, which the script adds
+   with motion allowed, once the first frame has been drawn. Until then —
+   without JavaScript, and for anyone who has asked for less motion or less
+   data — the section is the still photograph it has always been.
+
+   The film fills the stage edge to edge, as the still photograph under it
+   always has: no page showing beside the picture at any window size. That
+   is a choice with a price, and the price is sharpness — a picture asked
+   to reach the sides of a thousand-pixel window is enlarged to 1.85x,
+   where the same clip held to a 720-pixel square was enlarged to 1.33x.
+   The README works the arithmetic; the short of it is that a bigger
+   master is what buys the difference back, and nothing else does.
+
+   How the frame is fitted into the box this gives it is decided on the
+   canvas rather than here: see paint() in site.js. */
 
 .hero__film {
   /* z-index 0 keeps the canvas above the still but under .hero__bg::after,
@@ -348,9 +359,16 @@ html.overture-armed { overflow: hidden; }
 
 /* One screen to stand in, then --film-screens of scrolling to play through.
    sticky measures itself against the nearest scrolling ancestor, so unlike
-   the plain hero this section must not clip its own overflow. */
+   the plain hero this section must not clip its own overflow.
+
+   In the same unit as the stage below, not vh, so that the two agree on a
+   phone: vh is the window with the address bar out of the way and svh is
+   the window with it in place, and a section measured in one of those
+   holding a stage measured in the other would spend a bar's height of
+   scrolling on a film that had already finished. */
 .hero--film.is-film {
   height: calc((var(--film-screens, 3) + 1) * 100vh);
+  height: calc((var(--film-screens, 3) + 1) * 100svh);
   overflow: visible;
 }
 

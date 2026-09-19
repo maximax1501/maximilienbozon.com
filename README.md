@@ -19,6 +19,7 @@ docs/                 ← this is the website. GitHub Pages serves this folder.
   assets/css/site.css
   assets/js/site.js
   assets/film/hero/     the homepage clip, one JPEG per frame
+  assets/film/hero/sm/  the same frames cut narrow, for phones
 
 build.py              regenerates docs/ from your photo list
 photos.py             the photo list — this is the file you edit
@@ -146,23 +147,56 @@ scroll. A browser cannot seek inside an H.264 file accurately enough to do
 this: the clip carries three keyframes in five seconds, and any seek lands
 on one of those three. Separate frames land exactly where they are asked to.
 
-The frames are not taken at a fixed interval. This clip is moving by its
-second frame, hits its fastest at the eleventh, then settles — the opening
-second moves twenty times as much between frames as the closing one does. So
-`film.py` measures every frame against the one before it and keeps one
-whenever enough has changed. The pull-back gets all twenty-four frames a
-second the clip has; the settled end gets one in six. Each frame records
-where in the clip it belongs, in `frames.json`, and the page maps your
-scroll position onto those — so the uneven spacing costs nothing and the
-timing is unchanged.
+Every frame the clip has is kept — all 124 of them, evenly spaced. An
+earlier cut measured each frame against the one before it and dropped the
+ones that had barely changed, taking the film from 124 frames to 90 and a
+third off its weight. It was a bad trade: the frames it dropped were the
+ones the picture was moving slowly through, which is exactly where the eye
+has time to see a step, and nothing further down the pipeline can put back
+a frame that was never cut. Each frame still records where in the clip it
+belongs, in `frames.json`, and the page maps your scroll position onto that
+list rather than counting files — so an unevenly cut film would still play,
+if there is ever a reason to make one.
+
+### Why it feels continuous
+
+A wheel notch is not a movement, it is a jump. One event moves the page
+about a hundred pixels, which through this section is three or four frames
+of the clip at once, and drawing the page where the scroll has just landed
+is what reads as a stutter — however many frames there are to draw.
+
+So the scroll does not draw. It moves a target, and a loop walks the
+picture towards it, closing all but a twentieth of the distance in 100
+milliseconds and stopping once it arrives. Those three or four frames then
+come out as three or four separate draws a frame apart, which is a move
+rather than a jump. How much of the distance each pass closes is worked out
+from the milliseconds that actually elapsed, not from the number of passes,
+so a 120Hz screen and a 60Hz one take the same tenth of a second to catch
+up — half the steps, twice as much in each. `FOLLOW` in `site.js` is that
+tenth of a second: much below 80ms and there is nothing to see, much above
+120ms and the film starts to feel like it is being towed.
+
+Two things about the loading matter as much. A frame is not counted as
+ready until `img.decode()` has finished with it, because an image that has
+merely arrived is decoded by the first draw that uses it — on the very
+frame that is trying to draw it. And frames are fetched nearest-first to
+wherever the film is standing, with one that fails retried once and then
+stepped over: asking for them strictly in order and refusing to draw past
+the first gap means a single dropped connection costs the whole rest of the
+film.
 
 To change the clip:
 
-1. Put the new one at `media/scroll-clip.mp4`. That folder is yours alone —
-   like `images/`, it is never committed.
+1. Put the new one at `media/scroll-clip.<anything ffmpeg opens>` — .mp4,
+   .mov, whatever it came out of. `film.py` finds it by name rather than by
+   extension, and stops if it finds two. That folder is yours alone — like
+   `images/`, it is never committed. The previous master is parked in
+   `media/previous/`.
 2. Run `python3 film.py`. It needs ffmpeg once: `brew install ffmpeg`.
 3. Run `python3 build.py`, then commit and push. There is no frame count to
-   keep in sync: `build.py` reads `frames.json`.
+   keep in sync: `build.py` reads `frames.json`. Nor is there a second set to
+   remember: `film.py` cuts both, and stops if the two ever come out at
+   different lengths.
 
 `FILM_SCREENS` in `build.py` is how many screens of scrolling play the whole
 thing — three at the moment. `FILM_EASE`, next to it, decides how evenly
@@ -173,26 +207,107 @@ runs slowly through the opening and quickens towards the end: the pull-back
 gets a quarter of the scroll instead of a fifth, and the last third of the
 clip takes under a quarter instead of a third. Raising it further starts the
 wind at a standstill, which strands the opening — the stretch where this clip
-moves fastest. In `film.py`, `THRESHOLD` is how much has to change before a
-frame is worth keeping — lower it for more frames and a heavier page — and
-`MAX_GAP` is the longest it will go without keeping one.
+moves fastest.
 
 ### How sharp it can be
 
-`WIDTH` in `film.py` is the one number that limits this, and it is set to the
-master's own width, because enlarging a frame before saving it adds weight
-and no detail. The clip is 1620 pixels wide and a full-screen retina window
-asks for around 2880, so the page is still enlarging it by not quite double.
-Nothing in the pipeline can recover that. If you can make the clip again at
-2880 or wider, do — raise `WIDTH` to match and it is the only change that
-puts real detail on the screen. It is not free: the frames are 8.1 MB at
-1620 and were 3.4 MB at 1152, so weigh it against the opening screen's load.
+The master is the whole of it. `film.py` reads the clip's own width and cuts
+to that, because enlarging a frame before saving it adds weight and no
+detail, and the page can enlarge it for free. There is no `WIDTH` to keep in
+sync: re-export the clip larger, run `film.py`, and the film is sharper.
+Nothing else changes.
 
-The frames are only fetched on a screen wide enough to hold a landscape
-picture, and never when the visitor has asked for reduced motion. A phone,
-an old browser, or a page with JavaScript switched off gets the still
-photograph the homepage always had — which is why that photograph is still
-in the markup underneath.
+The film fills the window edge to edge, so how much it has to be enlarged is
+set by the window's longest side against the frame's shortest. That is the
+whole arithmetic, and it is unforgiving on a wide screen.
+
+The clip is square today — 1084 x 1080, cropped out of a 1620 x 1080 master.
+Squaring it fixed the shape problem completely: a square frame is neither
+cropped to a sliver nor letterboxed, the framed print the clip ends on keeps
+its own edges, and the file is lighter, 9.0 MB against 11.0. But the crop
+threw away a third of the width, and a full-bleed picture on a wide window is
+filled by its width:
+
+| Window (retina) | Square 1084 | The old 3:2 1620 | Square 1620 | Square 2160 |
+|---|---|---|---|---|
+| 1000 x 950 | 1.85x | 1.76x | 1.23x | 0.93x |
+| 1280 x 800 | 2.36x | 1.58x | 1.58x | 1.19x |
+| 1440 x 900 | 2.66x | 1.78x | 1.78x | 1.33x |
+| 1680 x 1050 | 3.10x | 2.07x | 2.07x | 1.56x |
+| phone, 375 | 1.50x | 1.50x | 1.00x | 0.75x |
+
+So on a squarish window the square crop costs almost nothing, and on a wide
+laptop it costs a great deal — 2.66x where the 3:2 master was at 1.78x.
+Full-bleed and a narrow crop pull against each other, and there is no
+setting in this repository that reconciles them. The one thing that does is
+a bigger master: re-export the square clip at 1620 x 1620 and it matches the
+old 3:2 on every wide window while beating it on every tall one.
+
+| Master | Weighs about |
+|---|---|
+| 1084 x 1080, today | 9.0 MB |
+| 1440 x 1440 | 14 MB |
+| 1620 x 1620 | 17 MB |
+| 2160 x 2160 | 27 MB |
+
+(Projected from measured cuts of this clip, which come out near pixels^0.8
+rather than linear in pixels.) `QUALITY` in `film.py` is the knob that costs
+least — it is at 4, and this clip measures about a fifth lighter at 6, for a
+difference its dark greys hide well. A 1620 square master at quality 6 lands
+near 14 MB.
+
+`MAX_WIDTH` in `film.py` stops the cut at 2880 however big the master is,
+and `BUDGET_MB` is the weight past which it says so out loud rather than
+letting you find out by publishing.
+
+Nothing is fetched when the visitor has asked for reduced motion, or has
+Data Saver switched on. An old browser, or a page with JavaScript switched
+off, gets the still photograph the homepage always had — which is why that
+photograph is still in the markup underneath.
+
+That is the only thing the connection is asked about. `effectiveType`, the
+browser's own guess at the speed of the line, is not consulted: it reports
+"2g" on connections that are nothing of the kind — a local server answering
+instantly reads as 2g — and a slow connection is already handled better by
+the loading above, which blocks on nothing and fetches nearest-first while
+the still photograph holds the page. Data Saver is a person saying no. The
+rest is arithmetic saying maybe.
+
+### On a phone
+
+A phone used to get the still photograph and nothing else, on the grounds
+that a landscape frame cropped to an upright window is a sliver. That was
+true, and on this clip it was worse than a sliver: cropping an upright
+window to the middle third of the frame's width cut the ending off the film,
+because the pull-back finishes on a framed print whose own edges are near
+the left and right of the frame.
+
+A square frame is what answers that. It reaches both sides of a phone with
+nothing cropped off either of them, and where it cannot reach the top and
+bottom of a screen that tall, the dark takes the rest — `UPRIGHT` in
+`site.js` is the line below which the picture is fitted to the width instead
+of being filled to the height, and it is set at 9:10, which is where the
+film used to be refused altogether. So no window that already had the film
+sees any change from it.
+
+The phone's cut is the same 124 frames at 810 pixels instead of 1084: 5.4 MB
+instead of 9.0, and still more picture than a phone is asked to draw, since
+a 375-point screen at retina wants 750. `SMALL_WIDTH` and `SMALL_QUALITY` in
+`film.py` are that trade.
+
+Which cut gets fetched is decided by the screen, not by the window — a
+window can be dragged bigger, a screen cannot, and it is the screen that
+says whose data plan this is. Its short side is around 400 points on a phone
+however the phone is held, and nearer 750 on the smallest tablet. So a phone
+turned on its side keeps the cut it already has rather than spending the
+rest of somebody's data on sharpness they asked for by rotating their wrist.
+
+`ZOOM` and `ZOOM_BY`, next to `UPRIGHT`, open the fitted picture wider than
+the window and give that up over the first fifth of the clip, so it starts
+cropped like the still photograph it replaces rather than standing in the
+middle of the screen. With a square frame there is little left for them to
+do; they are what makes a frame narrower than its window arrive rather than
+simply appear.
 
 ---
 
